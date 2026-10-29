@@ -22,6 +22,7 @@
 #include "cores.hpp"
 #include "library.hpp"
 #include "metadata.hpp"
+#include "../common/files.hpp"
 
 namespace {
 
@@ -40,13 +41,13 @@ std::string hex(unsigned long long h) {
 }
 
 bool exists(const std::string& p) {
-    if (FILE* f = fopen(p.c_str(), "rb")) { fclose(f); return true; }
+    if (FILE* f = files::openRead(p)) { fclose(f); return true; }
     return false;
 }
 
 std::vector<uint8_t> readFile(const std::string& p) {
     std::vector<uint8_t> out;
-    if (FILE* f = fopen(p.c_str(), "rb")) {
+    if (FILE* f = files::openRead(p)) {
         uint8_t buf[16384];
         size_t n;
         while ((n = fread(buf, 1, sizeof buf, f)) > 0) out.insert(out.end(), buf, buf + n);
@@ -116,7 +117,7 @@ void ThumbWorker::start(const std::string& dir) {
     // 0.5.1 kept RGB565 copies in thumbs/ without a map.tsv, which go.
     const std::string old = dir_.substr(0, dir_.rfind('/') + 1) + "thumbs2";
     auto hasMap = [](const std::string& d) {
-        FILE* f = fopen((d + "/map.tsv").c_str(), "rb");
+        FILE* f = files::openRead((d + "/map.tsv"));
         if (f) fclose(f);
         return f != nullptr;
     };
@@ -267,7 +268,7 @@ bool ThumbWorker::has(const std::string& track) {
 }
 
 void ThumbWorker::loadMap() {
-    if (FILE* f = fopen((dir_ + "/map.tsv").c_str(), "rb")) {
+    if (FILE* f = files::openRead((dir_ + "/map.tsv"))) {
         char line[128];
         while (fgets(line, sizeof line, f)) {
             char* tab = strchr(line, '\t');
@@ -288,14 +289,8 @@ void ThumbWorker::saveMap() {
         out.reserve(map_.size() * 40);
         for (const auto& [k, f] : map_) out += hex(k) + "\t" + f + "\n";
     }
-    // Next to the old one and renamed over it, so the overlay never reads half a map.
-    const std::string tmp = dir_ + "/map.tmp", dst = dir_ + "/map.tsv";
-    if (FILE* f = fopen(tmp.c_str(), "wb")) {
-        const bool ok = fwrite(out.data(), 1, out.size(), f) == out.size();
-        fclose(f);
-        if (ok) {
-            remove(dst.c_str());
-            rename(tmp.c_str(), dst.c_str());
-        }
+    if (!files::writeAtomic(dir_ + "/map.tsv", out)) {
+        std::lock_guard<std::mutex> l(m_);
+        mapDirty_ = true;
     }
 }

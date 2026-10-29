@@ -12,6 +12,7 @@
  * - Positions are passed as milliseconds (sample_rate 1000).
  * - Paths: sys-tune's have no mount name ("/Music/…"), Gatefold's start with "sdmc:".
  */
+#include "../../common/files.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -169,7 +170,7 @@ bool gfLoadThumb(const char* trackPath, std::vector<u8>& rgb) {
     const std::string key = mounted(trackPath);
     char want[20];
     snprintf(want, sizeof want, "%016llx", (unsigned long long)gfbgHash(key.data(), key.size()));
-    FILE* f = fopen(GFBG_THUMBS "/map.tsv", "r");
+    FILE* f = files::openRead(GFBG_THUMBS "/map.tsv");
     if (!f) return false;
     char line[128];
     std::string file;
@@ -181,7 +182,7 @@ bool gfLoadThumb(const char* trackPath, std::vector<u8>& rgb) {
         }
     fclose(f);
     if (file.empty()) return false;
-    f = fopen((std::string(GFBG_THUMBS "/") + file).c_str(), "rb");
+    f = files::openRead((std::string(GFBG_THUMBS "/") + file));
     if (!f) return false;
     rgb.resize(size_t(GFBG_ART) * GFBG_ART * 3);
     const bool ok = fread(rgb.data(), 1, rgb.size(), f) == rgb.size();

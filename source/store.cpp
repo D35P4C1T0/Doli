@@ -4,6 +4,7 @@
 #include "store.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstdarg>
 #include <cstdio>
@@ -17,6 +18,7 @@
 #include <thread>
 
 #include "cores.hpp"
+#include "../common/files.hpp"
 
 namespace {
 
@@ -27,20 +29,23 @@ namespace {
  * since it was last written is skipped.
  */
 struct Writer {
-    struct Job { std::string path, data; bool atomic = false; };
+    struct Job { std::string path, data; };
     std::mutex m;
     std::condition_variable wake, done;
     std::deque<Job> jobs;
     std::unordered_map<std::string, std::string> written;
+    std::unordered_map<std::string, Job> failed;
     bool busy = false, started = false;
+    std::string activePath;
     std::thread thread;   // kept, never detached: libnx has no pthread_detach (detach() throws and aborts)
 
-    void put(const std::string& path, std::string data, bool atomic) {
+    void put(const std::string& path, std::string data) {
         std::lock_guard<std::mutex> g(m);
+        failed.erase(path);   // a newer snapshot supersedes any failed save
         const bool queued = std::any_of(jobs.begin(), jobs.end(), [&](const Job& j) { return j.path == path; });
-        if (auto w = written.find(path); !queued && w != written.end() && w->second == data) return;
+        if (auto w = written.find(path); !queued && activePath != path && w != written.end() && w->second == data) return;
         if (queued) { for (Job& j : jobs) if (j.path == path) j.data = std::move(data); }
-        else jobs.push_back({ path, std::move(data), atomic });
+        else jobs.push_back({ path, std::move(data) });
         if (!started) {
             started = true;
             thread = std::thread([this] { cores::moveHere(cores::Files); run(); });
@@ -57,23 +62,29 @@ struct Writer {
             {
                 std::unique_lock<std::mutex> g(m);
                 busy = false;
+                activePath.clear();
                 done.notify_all();
+                if (jobs.empty() && !failed.empty()) {
+                    wake.wait_for(g, std::chrono::seconds(2), [&] { return !jobs.empty(); });
+                    if (jobs.empty()) {
+                        for (auto& [path, retry] : failed) jobs.push_back(std::move(retry));
+                        failed.clear();
+                    }
+                }
                 wake.wait(g, [&] { return !jobs.empty(); });
                 j = std::move(jobs.front());
                 jobs.pop_front();
                 busy = true;
+                activePath = j.path;
             }
-            // Atomic ones are written next to the old file and renamed over it, so a power cut mid-write loses nothing.
-            const std::string tmp = j.atomic ? j.path + ".tmp" : j.path;
-            if (FILE* f = fopen(tmp.c_str(), "wb")) {
-                fwrite(j.data.data(), 1, j.data.size(), f);
-                fclose(f);
-                if (j.atomic) {
-                    remove(j.path.c_str());
-                    rename(tmp.c_str(), j.path.c_str());
-                }
+            if (files::writeAtomic(j.path, j.data)) {
                 std::lock_guard<std::mutex> g(m);
                 written[j.path] = std::move(j.data);
+            } else {
+                fprintf(stderr, "Could not save %s; will retry\n", j.path.c_str());
+                std::lock_guard<std::mutex> g(m);
+                if (std::none_of(jobs.begin(), jobs.end(), [&](const Job& queued) { return queued.path == j.path; }))
+                    failed[j.path] = std::move(j);
             }
         }
     }
@@ -106,19 +117,7 @@ void makeDirs() {
     made = true;
 }
 
-std::vector<std::string> readLines(const std::string& file) {
-    std::vector<std::string> out;
-    FILE* f = fopen(file.c_str(), "rb");
-    if (!f) return out;
-    char buf[2048];
-    while (fgets(buf, sizeof buf, f)) {
-        size_t n = strlen(buf);
-        while (n && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) buf[--n] = 0;
-        if (n) out.emplace_back(buf);
-    }
-    fclose(f);
-    return out;
-}
+using files::readLines;
 
 }  // namespace
 
@@ -220,19 +219,16 @@ void Store::saveEdits() const {
         for (char& c : s) if (c == '\t' || c == '\n' || c == '\r') c = ' ';
         return s;
     };
-    if (FILE* f = fopen(path("edits.tsv").c_str(), "wb")) {
-        for (const auto& [p, e] : edits) {
-            if (e.empty()) continue;
-            fputs(p.c_str(), f);
-            for (const auto& [k, v] : e) fprintf(f, "\t%s=%s", k.c_str(), clean(v).c_str());
-            fputc('\n', f);
-        }
-        fclose(f);
+    std::string tags, art;
+    for (const auto& [p, e] : edits) {
+        if (e.empty()) continue;
+        tags += p;
+        for (const auto& [k, v] : e) appendf(tags, "\t%s=%s", k.c_str(), clean(v).c_str());
+        tags += '\n';
     }
-    if (FILE* f = fopen(path("covers.tsv").c_str(), "wb")) {
-        for (const auto& [p, file] : covers) fprintf(f, "%s\t%s\n", p.c_str(), file.c_str());
-        fclose(f);
-    }
+    for (const auto& [p, file] : covers) appendf(art, "%s\t%s\n", p.c_str(), file.c_str());
+    writer().put(path("edits.tsv"), std::move(tags));
+    writer().put(path("covers.tsv"), std::move(art));
 }
 
 void Store::save() const {
@@ -256,28 +252,28 @@ void Store::save() const {
     appendf(f, "batteryPercent=%d\nbatteryEstimate=%d\n", batteryPercent, batteryEstimate);
     appendf(f, "levelMode=%d\nlevelTarget=%d\n", levelMode, levelTarget);
     if (!musicRoot.empty()) appendf(f, "musicRoot=%s\n", musicRoot.c_str());
-    writer().put(path("settings.txt"), std::move(f), false);
+    writer().put(path("settings.txt"), std::move(f));
 
     std::string pl;
     for (const auto& p : playlists) appendf(pl, "%s\t%s\n", p.name.c_str(), p.path.c_str());
-    writer().put(path("playlists.txt"), std::move(pl), false);
+    writer().put(path("playlists.txt"), std::move(pl));
     std::string own;
     for (const auto& p : playlists) {
         if (!p.own()) continue;
         appendf(own, "#%s\n", p.name.c_str());
         for (const auto& t : p.tracks) appendf(own, "%s\n", t.c_str());
     }
-    writer().put(path("lists.txt"), std::move(own), false);
+    writer().put(path("lists.txt"), std::move(own));
     std::string lk;
     for (const auto& p : liked) appendf(lk, "%s\n", p.c_str());
-    writer().put(path("liked.txt"), std::move(lk), false);
+    writer().put(path("liked.txt"), std::move(lk));
 }
 
 void Store::flush() { writer().flush(); }
 
 void Store::writeFile(const char* file, std::string data) const {
     makeDirs();
-    writer().put(path(file), std::move(data), true);
+    writer().put(path(file), std::move(data));
 }
 
 bool Store::loadSession(Session& s) const {
@@ -306,7 +302,7 @@ void Store::saveSession(const Session& s) const {
     for (size_t i = 0; i < s.order.size(); i++) appendf(f, i ? " %d" : "%d", s.order[i]);
     f += "\n";
     for (const auto& t : s.tracks) appendf(f, "track=%s\n", t.c_str());
-    writer().put(path("session.txt"), std::move(f), true);
+    writer().put(path("session.txt"), std::move(f));
 }
 
 int Store::newPlaylist(std::string name) {

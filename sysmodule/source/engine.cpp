@@ -4,6 +4,7 @@
  * the music carries on exactly as it would have inside the app.
  */
 #include "engine.hpp"
+#include "../../common/files.hpp"
 
 #include <dirent.h>
 #include <malloc.h>
@@ -54,19 +55,7 @@ struct Lock {
 
 namespace {
 
-std::vector<std::string> readLines(const std::string& p) {
-    std::vector<std::string> out;
-    FILE* f = fopen(p.c_str(), "rb");
-    if (!f) return out;
-    char line[1024];
-    while (fgets(line, sizeof line, f)) {
-        size_t n = strlen(line);
-        while (n && (line[n - 1] == '\n' || line[n - 1] == '\r')) line[--n] = 0;
-        out.emplace_back(line, n);
-    }
-    fclose(f);
-    return out;
-}
+using files::readLines;
 
 }  // namespace
 
@@ -249,7 +238,7 @@ float Engine::levelFor(const std::string& path) const {
 
 /** Gatefold rewrites GFBG_GAINS as it measures: its header's generation says when to read it again. */
 void Engine::watchGains() {
-    FILE* f = fopen(GFBG_GAINS, "rb");
+    FILE* f = files::openRead(GFBG_GAINS);
     if (!f) return;
     GfbgGainsHeader h{};
     if (fread(&h, sizeof h, 1, f) != 1 || h.magic != GFBG_GAINS_MAGIC || h.count > 100000) { fclose(f); return; }
@@ -366,10 +355,13 @@ void Engine::saveGameVolumes() {
     }
     mkdir("sdmc:/config", 0777);
     mkdir(Dir, 0777);
-    if (FILE* f = fopen(cfgPath("bg-games.txt").c_str(), "wb")) {
-        for (const auto& [p, v] : copy) fprintf(f, "%016llx=%.3f\n", (unsigned long long)p, double(v));
-        fclose(f);
+    std::string out;
+    for (const auto& [p, v] : copy) {
+        char line[64];
+        snprintf(line, sizeof line, "%016llx=%.3f\n", (unsigned long long)p, double(v));
+        out += line;
     }
+    if (!files::writeAtomic(cfgPath("bg-games.txt"), out)) fprintf(stderr, "Could not save game volumes\n");
 }
 
 void Engine::trackInfo(GfbgTrackInfo* out) {
@@ -545,14 +537,14 @@ void Engine::playAtPos(s32 pos, bool paused, double start) {
 void Engine::next(bool natural) {
     const s32 n = s32(order_.size());
     if (n == 0) return stop();
-    if (natural && mode_ == GfbgMode_RepeatOne) {
-        if (!load(pos_, 0)) { errorGen_++; stop(false); }
-        trackBy_ = 0;
-        return;
-    }
     if (natural && stopAfter_) {
         stopAfter_ = false;
         stop(false);
+        return;
+    }
+    if (natural && mode_ == GfbgMode_RepeatOne) {
+        if (!load(pos_, 0)) { errorGen_++; stop(false); }
+        trackBy_ = 0;
         return;
     }
     s32 p = pos_ + 1;
@@ -1054,25 +1046,18 @@ void Engine::saveSession() {
     }
     mkdir("sdmc:/config", 0777);
     mkdir(Dir, 0777);
-    // Next to the old one and renamed over it: a power cut mid-write never loses the queue.
-    const std::string tmp = cfgPath("bg-session.tmp"), dst = cfgPath("bg-session.txt");
-    FILE* f = fopen(tmp.c_str(), "wb");
-    if (!f) return;
-    const bool ok = fwrite(out.data(), 1, out.size(), f) == out.size();
-    fclose(f);
-    if (!ok) return;
-    remove(dst.c_str());
-    rename(tmp.c_str(), dst.c_str());
+    if (!files::writeAtomic(cfgPath("bg-session.txt"), out)) {
+        Lock l(&m_);
+        markDirty();
+    }
 }
 
 void Engine::saveConfig() {
     GfbgConfig c = config();
     mkdir("sdmc:/config", 0777);
     mkdir(Dir, 0777);
-    if (FILE* f = fopen(cfgPath("bg-config.txt").c_str(), "wb")) {
-        fprintf(f, "onOpen=%d\nonHome=%d\nonClose=%d\nonReturn=%d\nfadeOut=%.2f\nfadeIn=%.2f\ngameVolume=%.3f\n", c.onOpen, c.onHome,
-                c.onClose, c.onReturn, double(c.fadeOut), double(c.fadeIn), double(c.gameVolume));
-        fprintf(f, "levelling=%u\n", unsigned(c.reserved[0]));
-        fclose(f);
-    }
+    char out[512];
+    snprintf(out, sizeof out, "onOpen=%d\nonHome=%d\nonClose=%d\nonReturn=%d\nfadeOut=%.2f\nfadeIn=%.2f\ngameVolume=%.3f\nlevelling=%u\n",
+             c.onOpen, c.onHome, c.onClose, c.onReturn, double(c.fadeOut), double(c.fadeIn), double(c.gameVolume), unsigned(c.reserved[0]));
+    if (!files::writeAtomic(cfgPath("bg-config.txt"), out)) fprintf(stderr, "Could not save background settings\n");
 }

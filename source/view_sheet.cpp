@@ -129,6 +129,7 @@ void App::undoTagEdits(int track) {
     store.edits.erase(lib.tracks[track].path);
     store.saveEdits();
     meta.retag(track);   // the file's own tags come back as it is read again
+    if (now.track == track) { now.loading = true; loadTrackCoverAgain(); }
     toast("Back to the tags in the file");
 }
 

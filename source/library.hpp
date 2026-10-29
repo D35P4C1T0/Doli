@@ -52,6 +52,7 @@ struct Library {
     static std::vector<std::string> listFiles(const std::vector<std::string>& roots);
     /** The library from a list of files (a walk's, or the one remembered from the last run). */
     void build(const std::vector<std::string>& roots, const std::vector<std::string>& files);
+    void resetTags(int track);
     int folderByPath(const std::string& path) const;
     std::vector<int> tracksUnder(int folder) const;
 };

@@ -184,6 +184,19 @@ std::vector<std::string> listDirs(const std::string& path) {
     return out;
 }
 
+void Library::resetTags(int track) {
+    Track& t = tracks[track];
+    for (const auto& root : roots)
+        if (t.path.size() > root.size() && t.path.compare(0, root.size(), root) == 0 && t.path[root.size()] == '/') {
+            const int album = t.albumIdx;
+            const bool tagged = t.tagged;
+            t = makeTrack(t.path, root);
+            t.albumIdx = album;
+            t.tagged = tagged;
+            return;
+        }
+}
+
 int Library::folderByPath(const std::string& path) const {
     for (int i = 0; i < int(folders.size()); i++)
         if (strcasecmp(folders[i].path.c_str(), path.c_str()) == 0) return i;

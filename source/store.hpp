@@ -88,7 +88,7 @@ struct Store {
     unsigned hiddenTabs = 0;
 
     void load();
-    /** Queued for a background thread (store.cpp); flush() waits until everything is on the card. */
+    /** Queued for a background thread; flush() waits for an attempt, failures retry while the app runs. */
     void save() const;
     static void flush();
     /** Any file of ours, written on the same thread (and atomically: next to it, then renamed over it). */

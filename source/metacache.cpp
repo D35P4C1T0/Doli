@@ -17,6 +17,7 @@
 
 #include "cores.hpp"
 #include "metadata.hpp"
+#include "../common/files.hpp"
 
 namespace {
 
@@ -89,7 +90,7 @@ std::vector<uint8_t> encodeJpeg(SDL_Surface* s, int quality) {
 
 std::vector<uint8_t> readAll(const std::string& path) {
     std::vector<uint8_t> out;
-    if (FILE* f = fopen(path.c_str(), "rb")) {
+    if (FILE* f = files::openRead(path)) {
         char buf[16384];
         size_t n;
         while ((n = fread(buf, 1, sizeof buf, f)) > 0) out.insert(out.end(), buf, buf + n);
@@ -184,6 +185,7 @@ void MetaCache::setCoverFile(int t, const std::string& file) {
 
 void MetaCache::retag(int t) {
     if (t < 0 || t >= int(tagQueued_.size())) return;
+    lib_->resetTags(t);
     { std::lock_guard<std::mutex> g(m_); done_[t] = 0; }
     tagQueued_[t] = 0;
     wantTags(t);
@@ -316,7 +318,7 @@ void MetaCache::run() {
         std::vector<uint8_t> bytes = std::move(info.cover);
         if (!mine.empty()) {
             res.key = "o:" + mine;   // your cover, shared by every track it was chosen for
-            if (FILE* f = fopen(mine.c_str(), "rb")) {
+            if (FILE* f = files::openRead(mine)) {
                 char buf[16384];
                 size_t n;
                 while ((n = fread(buf, 1, sizeof buf, f)) > 0) bytes.insert(bytes.end(), buf, buf + n);
@@ -480,21 +482,16 @@ void MetaCache::loadArtMap() {
 }
 
 void MetaCache::saveArtMap() {
-    artNew_ = 0;
-    const std::string tmp = artDir_ + "/map.tmp", dst = artDir_ + "/map.tsv";
-    FILE* f = fopen(tmp.c_str(), "wb");
-    if (!f) return;
-    for (const auto& [h, e] : artMap_) fprintf(f, "%s\t%s\t%s\n", hex16(h).c_str(), e.file.c_str(), e.key.c_str());
-    fclose(f);
-    remove(dst.c_str());
-    rename(tmp.c_str(), dst.c_str());
+    std::string out;
+    for (const auto& [h, e] : artMap_) out += hex16(h) + "\t" + e.file + "\t" + e.key + "\n";
+    if (files::writeAtomic(artDir_ + "/map.tsv", out)) artNew_ = 0;
 }
 
 void MetaCache::load() {
     // Read in one go and split in place: line by line, with a string for every column, this took a third of a
     // second of the console's launch for a few thousand tracks.
     std::string data;
-    if (FILE* f = fopen(cacheFile_.c_str(), "rb")) {
+    if (FILE* f = files::openRead(cacheFile_)) {
         fseek(f, 0, SEEK_END);
         data.resize(size_t(std::max(0L, ftell(f))));
         fseek(f, 0, SEEK_SET);
@@ -542,22 +539,25 @@ void MetaCache::load() {
 }
 
 void MetaCache::save() {
-    FILE* f = fopen(cacheFile_.c_str(), "wb");
-    if (!f) return;
+    std::string out;
     for (const auto& t : lib_->tracks)
-        if (t.tagged)
-            fprintf(f, "%s\t%s\t%s\t%s\t%s\t%.3f\t%s\t%d\t%s\n", field(t.path).c_str(), field(t.title).c_str(), field(t.artist).c_str(),
-                    field(t.album).c_str(), field(t.date).c_str(), t.duration, field(t.albumArtist).c_str(), t.trackNo, field(t.genre).c_str());
-    fclose(f);
-    dirty_ = false;
+        if (t.tagged) {
+            char numbers[80];
+            snprintf(numbers, sizeof numbers, "\t%.3f\t", t.duration);
+            out += field(t.path) + "\t" + field(t.title) + "\t" + field(t.artist) + "\t" + field(t.album) + "\t" + field(t.date) + numbers
+                   + field(t.albumArtist) + "\t" + std::to_string(t.trackNo) + "\t" + field(t.genre) + "\n";
+        }
+    if (files::writeAtomic(cacheFile_, out)) dirty_ = false;
 }
 
 void MetaCache::clearDiskCache() {
     remove(cacheFile_.c_str());
+    remove((cacheFile_ + ".bak").c_str());
     dirty_ = false;
     // The covers too: "Read all tags again" is also how a changed picture is picked up.
     artMap_.clear();
     artByKey_.clear();
     artCount_ = 0;
     remove((artDir_ + "/map.tsv").c_str());
+    remove((artDir_ + "/map.tsv.bak").c_str());
 }

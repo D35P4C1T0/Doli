@@ -1,6 +1,7 @@
 /*
  * Gatefold NX · levels.cpp
  */
+#include "../common/files.hpp"
 #include "levels.hpp"
 
 #include <algorithm>
@@ -16,7 +17,7 @@ namespace {
 
 std::string readFile(const std::string& path) {
     std::string out;
-    FILE* f = fopen(path.c_str(), "rb");
+    FILE* f = files::openRead(path);
     if (!f) return out;
     char buf[16384];
     size_t n;

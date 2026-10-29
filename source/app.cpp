@@ -2,6 +2,7 @@
  * Gatefold NX · app.cpp
  * Lifecycle, input mapping, play queue and track loading.
  */
+#include "../common/files.hpp"
 #include "app.hpp"
 #include "cores.hpp"
 
@@ -123,7 +124,7 @@ void App::rescan(const std::vector<std::string>* given) {
     if (given) files = *given;
     else if (!ready_ && !roots.empty()) {
         // Launch: the list from last time, if it is for the same folder ("root=" first, then one path a line).
-        if (FILE* f = fopen(store.path("library.tsv").c_str(), "rb")) {
+        if (FILE* f = files::openRead(store.path("library.tsv"))) {
             char line[2048];
             std::string root;
             if (fgets(line, sizeof line, f)) { root = line; while (!root.empty() && (root.back() == '\n' || root.back() == '\r')) root.pop_back(); }
@@ -718,13 +719,13 @@ void App::playAt(int orderPos) {
 
 void App::next(bool natural) {
     if (q.order.empty()) return;
-    if (natural && store.order == Order::RepeatOne) return playAt(q.pos);
     if (natural && stopAfterCurrent) {
         stopAfterCurrent = false;
         player.stop();
         appletSetMediaPlaybackState(false);
         return;
     }
+    if (natural && store.order == Order::RepeatOne) return playAt(q.pos);
     int p = q.pos + 1;
     if (p >= int(q.order.size())) {
         if (store.order == Order::Default && natural) {
@@ -1334,9 +1335,14 @@ void App::setBackground(bool on) {
     const double at = player.loaded() ? player.position() : 0;
     const bool playing = isPlaying();
     if (on && !player.remote()) {
+        player.setRemote(nullptr);
+        if (!bg.connect()) {
+            store.background = false;
+            toast("The background player is not installed");
+            return;
+        }
         player.stop();
         bgConnect();
-        if (!player.remote()) { toast("The background player is not installed"); return; }
         bgs.tracks.clear();   // send ours
         if (had) {
             bgSyncQueue();

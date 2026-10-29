@@ -206,6 +206,7 @@ make -C overlay          # the overlay: Gatefold.ovl
 ```
 
 `tools/bgtest/` runs the background player's decoders on a PC, to compare them with FFmpeg.
+Run `bash tools/tests/run.sh` with a C++20 compiler for the host regression checks (FFmpeg is optional for a generated AAC fixture).
 
 ### 🖥️ PC preview
 
@@ -230,6 +231,7 @@ The preview is a dev build; `DEV=0` before `bash tools/preview/build.sh` builds 
 ## ⚠️ Known limits
 
 - **Background player formats:** ALAC, Ogg Vorbis and Opus play in Gatefold only; the background player skips them.
+- **Background AAC file length:** sample tables are capped at 256 KiB to fit the service's memory; very long files that exceed this budget are skipped.
 - **Not ported:** Gatefold's sound analysis (AI moods and radio), YouTube, and online cover and lyrics lookup.
 - **Scripts:** CJK text uses the console's own fonts; scripts outside them will not render.
 - **MP3 durations:** VBR MP3s without a Xing header get an estimated duration.

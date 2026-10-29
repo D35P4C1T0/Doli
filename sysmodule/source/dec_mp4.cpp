@@ -36,7 +36,7 @@ public:
     bool open(const char* path) {
         if (!r_.open(path)) return false;
         walk(0, r_.size(), 0);
-        if (!audio_ || (sizes16_.empty() && sizes32_.empty() && constSize_ == 0)) return false;
+        if (invalid_ || !audio_ || (sizes16_.empty() && constSize_ == 0)) return false;
         if (chunks_.empty() || stsc_.empty() || timescale_ == 0) return false;
         if (ascRate_ == 0 || ascChannels_ <= 0) return false;
 
@@ -122,7 +122,11 @@ private:
 
     Reader r_;
     HAACDecoder aac_ = nullptr;
-    bool audio_ = false, sbr_ = false;
+    bool audio_ = false, sbr_ = false, invalid_ = false;
+    // shortcut: 256 KiB of tables per decoder; stream the index to support longer AAC files.
+    static constexpr size_t MaxTableBytes = 256 * 1024;
+    size_t tableBytes_ = 0;
+    unsigned tables_ = 0;
     int ascRate_ = 0, ascChannels_ = 0;
     uint32_t timescale_ = 0;
     int64_t mediaStart_ = 0;   // elst: the priming samples to drop
@@ -130,7 +134,6 @@ private:
     std::vector<Stsc> stsc_;
     std::vector<uint64_t> chunks_;
     std::vector<uint16_t> sizes16_;
-    std::vector<uint32_t> sizes32_;
     uint32_t constSize_ = 0, sampleCount_ = 0;
     uint8_t frame_[8192];
     short pcm_[MaxFrame * AAC_MAX_NCHANS];   // members, not locals: a sysmodule's thread stacks are small
@@ -141,8 +144,7 @@ private:
 
     uint32_t sampleSize(uint32_t i) const {
         if (constSize_) return constSize_;
-        if (!sizes16_.empty()) return i < sizes16_.size() ? sizes16_[i] : 0;
-        return i < sizes32_.size() ? sizes32_[i] : 0;
+        return i < sizes16_.size() ? sizes16_[i] : 0;
     }
 
     void rewind() {
@@ -186,19 +188,30 @@ private:
         }
     }
 
+    bool table(unsigned bit, uint32_t count, uint64_t available, size_t diskBytes, size_t memoryBytes) {
+        if ((tables_ & bit) || count > available / diskBytes || count > (MaxTableBytes - tableBytes_) / memoryBytes) {
+            invalid_ = true;
+            return false;
+        }
+        tables_ |= bit;
+        tableBytes_ += size_t(count) * memoryBytes;
+        return true;
+    }
+
     // ---------------------------------------------------------------- boxes
 
     /** Walks the boxes in [start, end). depth guards against files that nest without end. */
     void walk(uint64_t start, uint64_t end, int depth) {
         uint64_t at = start;
-        while (at + 8 <= end && depth < 12) {
-            r_.seek(at);
+        if (start > end || depth >= 12) { invalid_ = true; return; }
+        while (at < end && !invalid_) {
+            if (end - at < 8 || !r_.seek(at)) { invalid_ = true; return; }
             uint64_t size = r_.u32();
             const uint32_t type = r_.u32();
             uint64_t head = 8;
-            if (size == 1) { size = r_.u64(); head = 16; }
+            if (size == 1) { if (end - at < 16) { invalid_ = true; return; } size = r_.u64(); head = 16; }
             else if (size == 0) size = end - at;
-            if (size < head || at + size > end) break;
+            if (size < head || size > end - at) { invalid_ = true; return; }
             box(type, at + head, at + size, depth);
             at += size;
         }
@@ -215,32 +228,48 @@ private:
                 trakAudio_ = false;
                 walk(start, end, depth + 1);
                 if (trakAudio_ && ascRate_) audio_ = true;
-                else { stts_.clear(); stsc_.clear(); chunks_.clear(); sizes16_.clear(); sizes32_.clear(); constSize_ = 0; mediaStart_ = 0; }
+                else {
+                    std::vector<Stts>().swap(stts_);
+                    std::vector<Stsc>().swap(stsc_);
+                    std::vector<uint64_t>().swap(chunks_);
+                    std::vector<uint16_t>().swap(sizes16_);
+                    tableBytes_ = tables_ = 0;
+                    constSize_ = sampleCount_ = 0;
+                    mediaStart_ = timescale_ = ascRate_ = ascChannels_ = 0;
+                    sbr_ = false;
+                }
             }
             break;
         case fourcc("meta"): {
             // ISO's meta is a full box (4 bytes of version and flags); QuickTime's is not.
+            if (end - start < 8) { invalid_ = true; break; }
             r_.seek(start + 4);
             const uint32_t t = r_.u32();
             walk(t == fourcc("hdlr") ? start : start + 4, end, depth + 1);
             break;
         }
         case fourcc("hdlr"):
+            if (end - start < 12) { invalid_ = true; break; }
             r_.seek(start + 8);
             if (r_.u32() == fourcc("soun")) trakAudio_ = true;
             break;
         case fourcc("mdhd"): {
             r_.seek(start);
+            if (end - start < 1) { invalid_ = true; break; }
             const uint8_t v = r_.u8();
+            if (end - start < (v == 1 ? 24u : 16u)) { invalid_ = true; break; }
             r_.seek(start + (v == 1 ? 20 : 12));
             timescale_ = r_.u32();
             break;
         }
         case fourcc("elst"): {
+            if (end - start < 8) { invalid_ = true; break; }
             r_.seek(start);
             const uint8_t v = r_.u8();
             r_.seek(start + 4);
-            if (r_.u32() == 0) break;
+            const uint32_t n = r_.u32();
+            if (n == 0) break;
+            if (n > (end - start - 8) / (v == 1 ? 20 : 12)) { invalid_ = true; break; }
             if (v == 1) { r_.u64(); mediaStart_ = int64_t(r_.u64()); }
             else { r_.u32(); mediaStart_ = int32_t(r_.u32()); }
             if (mediaStart_ < 0) mediaStart_ = 0;
@@ -248,47 +277,49 @@ private:
         }
         case fourcc("stsd"): stsd(start, end); break;
         case fourcc("stts"): {
+            if (end - start < 8) { invalid_ = true; break; }
             r_.seek(start + 4);
             const uint32_t n = r_.u32();
-            if (n > 1u << 22) break;
+            if (!table(1, n, end - start - 8, 8, sizeof(Stts))) break;
             stts_.resize(n);
             for (auto& e : stts_) { e.count = r_.u32(); e.delta = r_.u32(); }
             break;
         }
         case fourcc("stsc"): {
+            if (end - start < 8) { invalid_ = true; break; }
             r_.seek(start + 4);
             const uint32_t n = r_.u32();
-            if (n > 1u << 22) break;
+            if (!table(2, n, end - start - 8, 12, sizeof(Stsc))) break;
             stsc_.resize(n);
             for (auto& e : stsc_) { e.first = r_.u32(); e.perChunk = r_.u32(); r_.u32(); }
             break;
         }
         case fourcc("stsz"): {
+            if (end - start < 12) { invalid_ = true; break; }
             r_.seek(start + 4);
             constSize_ = r_.u32();
             sampleCount_ = r_.u32();
-            if (constSize_ || sampleCount_ > 1u << 24) break;
-            // Read in blocks: one u32() call per sample would be slow on long files.
-            std::vector<uint32_t> all(sampleCount_);
-            uint32_t big = 0;
+            if (!table(4, constSize_ ? 0 : sampleCount_, end - start - 12, 4, sizeof(uint16_t))) break;
+            if (!sampleCount_ || constSize_ > sizeof frame_) { invalid_ = true; break; }
+            if (constSize_) break;
+            sizes16_.resize(sampleCount_);
             uint8_t blk[4096];
-            for (uint32_t i = 0; i < sampleCount_;) {
+            for (uint32_t i = 0; i < sampleCount_ && !invalid_;) {
                 const uint32_t k = std::min<uint32_t>(sampleCount_ - i, sizeof blk / 4);
-                if (r_.read(blk, k * 4) != k * 4) { sampleCount_ = i; break; }
+                if (r_.read(blk, k * 4) != k * 4) { invalid_ = true; break; }
                 for (uint32_t j = 0; j < k; j++, i++) {
-                    all[i] = uint32_t(blk[j * 4]) << 24 | uint32_t(blk[j * 4 + 1]) << 16 | uint32_t(blk[j * 4 + 2]) << 8 | blk[j * 4 + 3];
-                    big = std::max(big, all[i]);
+                    const uint32_t size = uint32_t(blk[j * 4]) << 24 | uint32_t(blk[j * 4 + 1]) << 16 | uint32_t(blk[j * 4 + 2]) << 8 | blk[j * 4 + 3];
+                    if (size > sizeof frame_) { invalid_ = true; break; }
+                    sizes16_[i] = uint16_t(size);
                 }
             }
-            all.resize(sampleCount_);
-            if (big < 65536) sizes16_.assign(all.begin(), all.end());
-            else sizes32_ = std::move(all);
             break;
         }
         case fourcc("stco"): case fourcc("co64"): {
+            if (end - start < 8) { invalid_ = true; break; }
             r_.seek(start + 4);
             const uint32_t n = r_.u32();
-            if (n > 1u << 22) break;
+            if (!table(8, n, end - start - 8, type == fourcc("co64") ? 8 : 4, sizeof(uint64_t))) break;
             chunks_.resize(n);
             for (auto& c : chunks_) c = type == fourcc("co64") ? r_.u64() : r_.u32();
             break;
@@ -305,11 +336,14 @@ private:
     bool trakAudio_ = false;
 
     void stsd(uint64_t start, uint64_t end) {
+        if (end - start < 16) { invalid_ = true; return; }
         r_.seek(start + 8);   // version/flags, entry count
         const uint64_t entry = r_.tell();
         const uint32_t size = r_.u32();
         const uint32_t format = r_.u32();
-        if (format != fourcc("mp4a") || entry + size > end) return;   // ALAC and the rest are not ours
+        if (size < 8 || size > end - entry) { invalid_ = true; return; }
+        if (format != fourcc("mp4a")) return;   // ALAC and the rest are not ours
+        if (size < 36) { invalid_ = true; return; }
         r_.seek(entry + 16);
         const uint16_t version = r_.u16();
         r_.seek(entry + 24);
@@ -317,16 +351,23 @@ private:
         r_.seek(entry + 32);
         ascRate_ = int(r_.u32() >> 16);
         const uint64_t kids = entry + 36 + (version == 1 ? 16 : version == 2 ? 36 : 0);
+        if (kids > entry + size) { invalid_ = true; return; }
         findEsds(kids, entry + size, 0);
     }
 
     void findEsds(uint64_t start, uint64_t end, int depth) {
         uint64_t at = start;
-        while (at + 8 <= end && depth < 3) {
+        if (start > end || depth >= 3) { invalid_ = true; return; }
+        while (at < end && !invalid_) {
+            if (end - at < 8) { invalid_ = true; return; }
             r_.seek(at);
             const uint32_t size = r_.u32(), type = r_.u32();
-            if (size < 8 || at + size > end) return;
-            if (type == fourcc("esds")) { esds(at + 12, at + size); return; }
+            if (size < 8 || size > end - at) { invalid_ = true; return; }
+            if (type == fourcc("esds")) {
+                if (size < 12) { invalid_ = true; return; }
+                esds(at + 12, at + size);
+                return;
+            }
             if (type == fourcc("wave")) findEsds(at + 8, at + size, depth + 1);   // QuickTime wraps it
             at += size;
         }
@@ -378,6 +419,7 @@ private:
     }
 
     void tagItem(uint64_t start, uint64_t end, std::string& out) {
+        if (end - start < 16) { invalid_ = true; return; }
         r_.seek(start);
         const uint32_t size = r_.u32();
         if (r_.u32() != fourcc("data") || size < 16 || start + size > end) return;
@@ -391,6 +433,7 @@ private:
 
     void cover(uint64_t start, uint64_t end) {
         if (tags.coverKind) return;
+        if (end - start < 16) { invalid_ = true; return; }
         r_.seek(start);
         const uint32_t size = r_.u32();
         if (r_.u32() != fourcc("data") || size < 16 || start + size > end) return;
