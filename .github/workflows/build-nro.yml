@@ -18,13 +18,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Switch dependencies
-        run: >-
-          dkp-pacman -Syu --needed --noconfirm
-          switch-dev switch-sdl2 switch-sdl2_mixer switch-sdl2_ttf
-          switch-sdl2_image switch-ffmpeg switch-libjpeg-turbo
-          switch-curl switch-libxml2
-
       - name: Build release NRO
         run: make -j"$(nproc)" DEV=0
 
