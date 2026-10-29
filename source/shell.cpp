@@ -372,7 +372,8 @@ void App::drawSeek(float x, float y, float w, float h, Id id) {
         }
     }
     const float cy = y + h / 2;
-    if (wave.ready() && wave.path() == (now.track >= 0 ? lib.tracks[now.track].path : std::string())) {
+    const std::string wavePath = now.track < 0 ? std::string() : lib.tracks[now.track].subsonicId.empty() ? lib.tracks[now.track].path : subBuffer_;
+    if (wave.ready() && wave.path() == wavePath) {
         // .seek.wave: 2 px bars every 3 px; played part in the accent-2 → accent gradient, the rest dim
         const auto& pk = wave.peaks();
         const int bars = int(w / 3);
@@ -516,6 +517,7 @@ void App::drawPlayerbar() {
 
 /** What runs in the background now, the most telling first. False when nothing does. */
 bool App::backgroundJob(Job& j) {
+    if (subThread_.joinable()) { j = { subScanning_ ? "Reading Subsonic library" : "Buffering Subsonic song", 0, 0, 2 }; return true; }
     const int n = int(lib.tracks.size());
     if (libCheck_.joinable() && !libCheckDone_) { j = { "Checking the music folder", 0, 0, 2 }; return true; }
     if (n > 0 && meta.taggedCount() < n) { j = { "Reading tags", meta.taggedCount(), n, 2 }; return true; }

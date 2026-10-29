@@ -400,9 +400,42 @@ void App::drawSettings(float x, float y, float w, float h) {
                                                 "after the tags, and for new music after a rescan",
                                 std::to_string(std::min(meta.coversCached(), int(lib.tracks.size()))) + " of " + std::to_string(lib.tracks.size())),
                         buttonRow("Rescan", "After adding or removing music", "set.rescan", ICON_REFRESH, "Rescan",
-                                  [this] { rescan(); toast("Library rescanned: " + std::to_string(lib.tracks.size()) + " tracks"); }),
+                                  [this] { rescan(); if (!store.subsonic.enabled) toast("Library rescanned: " + std::to_string(lib.tracks.size()) + " tracks"); }),
                         buttonRow("Read all tags again", "Forgets the tag cache and reads every file", "set.forget", nullptr, "Forget",
                                   [this] { meta.stop(); meta.clearDiskCache(); rescan(); toast("Reading all tags again"); }) } } } });
+    }
+
+    // Subsonic is a library source; the SD-card folder is remembered when switching back.
+    {
+        auto editServer = [this](const char* label, std::string& field, bool secret = false) {
+            std::string value;
+            if (!keyboard(label, field, value, secret)) return;
+            if (value.find_first_of("\r\n") != std::string::npos) { toast("Use a single line"); return; }
+            if (&field == &store.subsonic.url) {
+                while (!value.empty() && value.back() == '/') value.pop_back();
+                if (!value.empty() && !subsonic::validUrl(value)) { toast("Enter an http:// or https:// server URL without /rest or credentials"); return; }
+            }
+            if (store.subsonic.enabled) useSubsonic(false);
+            field = std::move(value);
+            store.save();
+        };
+        sections.push_back({ "Subsonic", ICON_GRID, { { "Remote library", {
+            buttonRow("Server URL", store.subsonic.url.empty() ? "https://music.example.com (include any server base path)" : store.subsonic.url,
+                      "set.subsonic.url", nullptr, "Edit", [this, editServer] { editServer("Subsonic server URL", store.subsonic.url); }),
+            buttonRow("Username", store.subsonic.user.empty() ? "Not set" : store.subsonic.user,
+                      "set.subsonic.user", nullptr, "Edit", [this, editServer] { editServer("Subsonic username", store.subsonic.user); }),
+            buttonRow("Password", store.subsonic.password.empty() ? "Not set" : "Saved on the SD card",
+                      "set.subsonic.password", nullptr, "Edit", [this, editServer] { editServer("Subsonic password", store.subsonic.password, true); }),
+            buttonRow("Library source", store.subsonic.enabled ? "Subsonic server" : "SD card",
+                      "set.subsonic.source", nullptr, store.subsonic.enabled ? "Use SD card" : "Connect", [this] {
+                          if (!store.subsonic.enabled && (!subsonic::validUrl(store.subsonic.url) || store.subsonic.user.empty() || store.subsonic.password.empty())) {
+                              toast("Set a server URL, username and password first"); return;
+                          }
+                          useSubsonic(!store.subsonic.enabled);
+                      }),
+            infoRow("Playback on demand", "Buffers one selected song on the SD card before playing. The server must support MP3 streaming. "
+                    "Remote music plays while Gatefold is open; use Library → Rescan to refresh. Prefer HTTPS; HTTP is unencrypted.")
+        } } } });
     }
 
     // Lyrics
@@ -514,6 +547,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                               [this] {
                                   Store fresh;
                                   fresh.musicRoot = store.musicRoot;
+                                  fresh.subsonic = store.subsonic;
                                   fresh.playlists = store.playlists;
                                   fresh.liked = store.liked;
                                   store = fresh;

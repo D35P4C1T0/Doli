@@ -173,6 +173,10 @@ void Store::load() {
         else if (k == "dimAfter") dimAfter = std::clamp(atoi(v.c_str()), 0, 60);
         else if (k == "sleepConsole") sleepConsole = std::clamp(atoi(v.c_str()), 0, 300);
         else if (k == "musicRoot") musicRoot = v;
+        else if (k == "subsonicEnabled") subsonic.enabled = v == "1";
+        else if (k == "subsonicUrl") subsonic.url = v;
+        else if (k == "subsonicUser") subsonic.user = v;
+        else if (k == "subsonicPassword") subsonic.password = v;
     }
     playlists.clear();
     for (const auto& l : readLines(path("playlists.txt"))) {
@@ -251,6 +255,8 @@ void Store::save() const {
     appendf(f, "keepAwake=%d\ndimAfter=%d\nsleepConsole=%d\n", keepAwake, dimAfter, sleepConsole);
     appendf(f, "batteryPercent=%d\nbatteryEstimate=%d\n", batteryPercent, batteryEstimate);
     appendf(f, "levelMode=%d\nlevelTarget=%d\n", levelMode, levelTarget);
+    appendf(f, "subsonicEnabled=%d\nsubsonicUrl=%s\nsubsonicUser=%s\nsubsonicPassword=%s\n",
+            subsonic.enabled, subsonic.url.c_str(), subsonic.user.c_str(), subsonic.password.c_str());
     if (!musicRoot.empty()) appendf(f, "musicRoot=%s\n", musicRoot.c_str());
     writer().put(path("settings.txt"), std::move(f));
 

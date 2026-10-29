@@ -75,6 +75,13 @@ static std::string read(const std::string& path) {
 int main() {
     std::filesystem::create_directories(Store::Dir);
     Store store;
+    store.subsonic = { true, "https://music.example.com/base", "user & café", "secret=+&é" };
+    store.save();
+    Store::flush();
+    Store restored;
+    restored.load();
+    assert(restored.subsonic.enabled && restored.subsonic.url == store.subsonic.url);
+    assert(restored.subsonic.user == store.subsonic.user && restored.subsonic.password == store.subsonic.password);
     Session saved, loaded;
     saved.pos = 2500;
     saved.position = 42.5;

@@ -65,6 +65,7 @@ bool App::init() {
     startMark("sdl");
 
     store.load();
+    subNetwork_ = subsonic::init();
     stats.start(Store::Dir);
     levels.start(Store::Dir);
     sideW = store.sidebarCollapsed ? css::SideWCollapsed : css::SideW;
@@ -75,7 +76,7 @@ bool App::init() {
     player.setVolume(store.volume);
     volumeShown = store.volume;
     startMark("audio");
-    if (store.background) bgConnect();
+    if (store.background && !store.subsonic.enabled) bgConnect();
     startMark("player");
 
     // Closing from the HOME menu ends the process without running shutdown(): hold the exit until the
@@ -92,9 +93,10 @@ bool App::init() {
             if (strcasecmp(d.c_str(), "music") == 0) { store.musicRoot = "sdmc:/" + d; break; }   // keep the card's own spelling
     rescan();
     pcm_.resize(Spectrum::N);
-    if (store.musicRoot.empty()) navigate(View::PickFolder, -1, "sdmc:/", false);
+    if (store.musicRoot.empty() && !store.subsonic.enabled) navigate(View::PickFolder, -1, "sdmc:/", false);
     else if (player.remote() && bgAdoptQueue()) {}   // the background player's queue, playing or not, wins
-    else if (store.resume) restoreSession();
+    else if (store.resume && !store.subsonic.enabled) restoreSession();
+    subRestore_ = store.resume && store.subsonic.enabled;
     startMark("queue");
     ui.focusDefault();
     ready_ = true;
@@ -104,12 +106,27 @@ bool App::init() {
 void App::useMusicFolder(const std::string& path) {
     store.musicRoot = path;
     store.save();
-    rescan();
+    if (store.subsonic.enabled) useSubsonic(false);
+    else rescan();
     navigate(View::Library, -1, {}, false);
     toast(std::to_string(lib.tracks.size()) + " tracks found in " + path);
 }
 
 void App::rescan(const std::vector<std::string>* given) {
+    if (store.subsonic.enabled && !subLibraryReady_) {
+        cancelSubsonic();
+        now.loading = false;
+        ++loadGen;
+        if (!subNetwork_) { toast("Networking is unavailable"); return; }
+        subScanning_ = true;
+        const auto config = store.subsonic;
+        subThread_ = std::thread([this, config] {
+            cores::moveHere(cores::Files);
+            subOk_ = subsonic::scan(config, subTracks_, subError_, subCancel_);
+            subDone_ = true;
+        });
+        return;
+    }
     // Track indexes change with the scan: remember the queue by path.
     const std::string current = now.track >= 0 ? lib.tracks[now.track].path : std::string();
     std::vector<std::string> queued;
@@ -118,47 +135,54 @@ void App::rescan(const std::vector<std::string>* given) {
     meta.stop();
     libEpoch++;
     if (!ready_) startMark("start");
-    const std::vector<std::string> roots = Library::validRoots(store.musicRoot.empty() ? std::vector<std::string>{} : std::vector<std::string>{ store.musicRoot });
-    std::vector<std::string> files;
-    bool remembered = false;
-    if (given) files = *given;
-    else if (!ready_ && !roots.empty()) {
-        // Launch: the list from last time, if it is for the same folder ("root=" first, then one path a line).
-        if (FILE* f = files::openRead(store.path("library.tsv"))) {
-            char line[2048];
-            std::string root;
-            if (fgets(line, sizeof line, f)) { root = line; while (!root.empty() && (root.back() == '\n' || root.back() == '\r')) root.pop_back(); }
-            if (root == "root=" + roots[0])
-                while (fgets(line, sizeof line, f)) {
-                    std::string p = line;
-                    while (!p.empty() && (p.back() == '\n' || p.back() == '\r')) p.pop_back();
-                    if (!p.empty()) files.push_back(std::move(p));
-                }
-            fclose(f);
-            remembered = !files.empty();
+    if (store.subsonic.enabled) {
+        subLibraryReady_ = false;
+        lib = Library{};
+        lib.tracks = std::move(subTracks_);
+        for (auto& t : lib.tracks) applyEdits(t);
+    } else {
+        const std::vector<std::string> roots = Library::validRoots(store.musicRoot.empty() ? std::vector<std::string>{} : std::vector<std::string>{ store.musicRoot });
+        std::vector<std::string> files;
+        bool remembered = false;
+        if (given) files = *given;
+        else if (!ready_ && !roots.empty()) {
+            // Launch: the list from last time, if it is for the same folder ("root=" first, then one path a line).
+            if (FILE* f = files::openRead(store.path("library.tsv"))) {
+                char line[2048];
+                std::string root;
+                if (fgets(line, sizeof line, f)) { root = line; while (!root.empty() && (root.back() == '\n' || root.back() == '\r')) root.pop_back(); }
+                if (root == "root=" + roots[0])
+                    while (fgets(line, sizeof line, f)) {
+                        std::string p = line;
+                        while (!p.empty() && (p.back() == '\n' || p.back() == '\r')) p.pop_back();
+                        if (!p.empty()) files.push_back(std::move(p));
+                    }
+                fclose(f);
+                remembered = !files.empty();
+            }
         }
+        if (!given && !remembered) files = Library::listFiles(roots);
+        std::sort(files.begin(), files.end());
+        lib.build(roots, files);
+        if (!remembered && !roots.empty() && files != libFiles_) {
+            std::string out = "root=" + roots[0] + "\n";
+            for (const auto& p : files) out += p + "\n";
+            store.writeFile("library.tsv", std::move(out));
+        }
+        libFiles_ = files;
+        if (remembered) {
+            // The card may have changed since: walked again on a worker core, compared in update().
+            if (libCheck_.joinable()) libCheck_.join();
+            libCheckDone_ = false;
+            libCheck_ = std::thread([this, roots] {
+                cores::moveHere(cores::Files);
+                libChecked_ = Library::listFiles(roots);
+                std::sort(libChecked_.begin(), libChecked_.end());
+                libCheckDone_ = true;
+            });
+        }
+        if (!ready_) startMark(remembered ? "list" : "scan");
     }
-    if (!given && !remembered) files = Library::listFiles(roots);
-    std::sort(files.begin(), files.end());
-    lib.build(roots, files);
-    if (!remembered && !roots.empty() && files != libFiles_) {
-        std::string out = "root=" + roots[0] + "\n";
-        for (const auto& p : files) out += p + "\n";
-        store.writeFile("library.tsv", std::move(out));
-    }
-    libFiles_ = files;
-    if (remembered) {
-        // The card may have changed since: walked again on a worker core, compared in update().
-        if (libCheck_.joinable()) libCheck_.join();
-        libCheckDone_ = false;
-        libCheck_ = std::thread([this, roots] {
-            cores::moveHere(cores::Files);
-            libChecked_ = Library::listFiles(roots);
-            std::sort(libChecked_.begin(), libChecked_.end());
-            libCheckDone_ = true;
-        });
-    }
-    if (!ready_) startMark(remembered ? "list" : "scan");
     store.save();   // creates the config folder for the tag cache
     meta.overlay = [this](Track& t) { applyEdits(t); };
     meta.start(&lib, store.path("tags.tsv"));   // tags.tsv: meta.tsv from 0.2 cached failed M4A reads
@@ -182,9 +206,81 @@ void App::rescan(const std::vector<std::string>* given) {
     areas.clear();
 }
 
+void App::cancelSubsonic() {
+    subCancel_ = true;
+    if (subThread_.joinable()) subThread_.join();
+    subCancel_ = false;
+    subDone_ = false;
+    subScanning_ = false;
+    subTracks_.clear();
+    subError_.clear();
+    subSeek_ = 0;
+}
+
+void App::useSubsonic(bool enabled) {
+    cancelSubsonic();
+    player.stop();
+    if (player.remote()) { bg.disconnect(); player.setRemote(nullptr); }
+    if (libCheck_.joinable()) libCheck_.join();
+    libCheckDone_ = false;
+    meta.stop();
+    wave.cancel();
+    lib = Library{};
+    rebuildIndex();
+    store.subsonic.enabled = enabled;
+    store.save();
+    q = decltype(q){};
+    now.track = -1;
+    now.loading = false;
+    subRestore_ = false;
+    appletSetMediaPlaybackState(false);
+    ++loadGen;
+    navigate(View::Library, -1, {}, false);
+    if (!enabled && store.background) bgConnect();
+    rescan();
+}
+
+void App::updateSubsonic() {
+    if (!subDone_) return;
+    subThread_.join();
+    subDone_ = false;
+    if (!subOk_) {
+        now.loading = false;
+        toast(subError_);
+        subScanning_ = false;
+        return;
+    }
+    if (subScanning_) {
+        subScanning_ = false;
+        subLibraryReady_ = true;
+        rescan();
+        toast("Subsonic: " + std::to_string(lib.tracks.size()) + " tracks");
+        if (subRestore_) { subRestore_ = false; restoreSession(); }
+        return;
+    }
+    if (subTrack_ != now.track || now.track < 0) return;
+    if (!player.load(subBuffer_, subPaused_)) {
+        now.loading = false;
+        toast("Server audio could not be played; check MP3 transcoding");
+        return;
+    }
+    if (subSeek_ > 0) { player.seek(subSeek_); subSeek_ = 0; }
+    appletSetMediaPlaybackState(!subPaused_);
+    TrackLoader::Request request;
+    request.gen = loadGen;
+    request.path = subBuffer_;
+    request.myCover = subBuffer_ + ".jpg";
+    request.opts = paletteOpts();
+    const Track& track = lib.tracks[now.track];
+    if (auto it = store.covers.find(track.path); it != store.covers.end()) request.myCover = it->second;
+    loader.request(std::move(request));
+    wave.request(subBuffer_);
+}
+
 void App::shutdown() {
     setDimmed(false);
     persistNow();
+    cancelSubsonic();
     Store::flush();
     stats.stop();
     levels.stop();
@@ -197,6 +293,8 @@ void App::shutdown() {
     meta.stop();
     player.shutdown();
     thumbs.stop();
+    if (!subBuffer_.empty()) { remove(subBuffer_.c_str()); remove((subBuffer_ + ".jpg").c_str()); }
+    subsonic::shutdown();
     bg.disconnect();   // the background player carries on by itself
     for (SDL_Texture* t : { now.cover, now.prevCover, now.blur, now.prevBlur }) if (t) SDL_DestroyTexture(t);
     g.shutdown();
@@ -238,13 +336,13 @@ void App::persistNow(bool sessionOnly) {
     store.volume = volumeShown;
     if (!sessionOnly) store.save();
     saveStats();
-    if (!store.resume) return;
+    if (!store.resume || subRestore_) return;
     Session s;
     s.name = q.name;
     for (int t : q.tracks) s.tracks.push_back(lib.tracks[t].path);
     s.order = q.order;
     s.pos = q.pos;
-    s.position = player.loaded() ? player.position() : 0;
+    s.position = player.loaded() ? player.position() : subSeek_;
     store.saveSession(s);
 }
 
@@ -273,6 +371,7 @@ void App::restoreSession() {
     if (cur < 0) return;   // the track that was playing is gone: keep the queue, start nothing
     loadTrack(q.tracks[q.order[q.pos]], true);
     if (player.loaded() && s.position > 1) player.seek(s.position);
+    else if (store.subsonic.enabled) subSeek_ = s.position;
     savedTrack = now.track;
 }
 
@@ -450,6 +549,7 @@ void App::input() {
 // ============================================================ update
 
 void App::update() {
+    updateSubsonic();
     if (coverWaiting_) { coverWaiting_ = false; applyCover(coverWait_); coverWait_ = TrackLoader::Result{}; }
     else if (TrackLoader::Result r; loader.take(r)) applyLoaded(r);
     bgUpdate();
@@ -707,7 +807,7 @@ void App::playAt(int orderPos) {
     if (q.order.empty()) return;
     q.pos = std::clamp(orderPos, 0, int(q.order.size()) - 1);
     loadTrack(q.tracks[q.order[q.pos]]);
-    if (!player.loaded()) {
+    if (!player.loaded() && !(store.subsonic.enabled && subThread_.joinable())) {
         // Unplayable file: say so, skip it, but never loop forever over a list of broken files.
         toast("Can't play “" + baseName(lib.tracks[q.tracks[q.order[q.pos]]].path) + "”");
         if (++q.failed < int(q.order.size())) next(false);
@@ -747,6 +847,7 @@ void App::prev() {
 
 void App::togglePlay() {
     if (!player.loaded()) {
+        if (store.subsonic.enabled && subThread_.joinable() && !subScanning_) { subPaused_ = !subPaused_; return; }
         if (q.pos >= 0) playAt(q.pos);
         else if (!lib.tracks.empty()) playTracks(listTracks(View::Library, -1, {}), 0, "Library");
         return;
@@ -1167,6 +1268,26 @@ void App::loadTrack(int trackIdx, bool paused, bool start) {
     statHeard = 0;   // a new play of it, also when Repeat track plays it again
     statCounted = false;
     player.setLevel(float(std::pow(10, levelDb(trackIdx) / 20)), true);   // from its first sample (levelling)
+    if (!t.subsonicId.empty() && start) {
+        cancelSubsonic();
+        player.stop();
+        wave.cancel();
+        appletSetMediaPlaybackState(false);
+        ++loadGen;
+        if (!subBuffer_.empty()) { remove(subBuffer_.c_str()); remove((subBuffer_ + ".jpg").c_str()); }
+        subBuffer_ = store.path("subsonic-buffer.mp3");
+        subTrack_ = trackIdx;
+        subPaused_ = paused;
+        subScanning_ = false;
+        const auto config = store.subsonic;
+        const Track track = t;
+        subThread_ = std::thread([this, config, track] {
+            cores::moveHere(cores::Files);
+            subOk_ = subsonic::buffer(config, track, subBuffer_, subError_, subCancel_);
+            subDone_ = true;
+        });
+        return;
+    }
     TrackLoader::Request r;
     r.gen = ++loadGen;
     r.path = t.path;
@@ -1329,6 +1450,7 @@ void App::addToPlaylist(int playlist, int track) {
 
 /** Settings → Playback → Background player: hands the track over, at the same place, either way. */
 void App::setBackground(bool on) {
+    if (on && store.subsonic.enabled) { toast("Subsonic plays while Gatefold is open"); return; }
     store.background = on;
     persistSoon(0.3f);
     const bool had = now.track >= 0 && q.pos >= 0;
@@ -1387,7 +1509,7 @@ void App::applyLoaded(TrackLoader::Result& r) {
         if (in.artist.empty()) in.artist = t.artist;
         if (in.album.empty()) in.album = t.album;
         if (in.duration <= 0) in.duration = t.duration;
-        if (store.edits.count(t.path)) {
+        if (!t.subsonicId.empty() || store.edits.count(t.path)) {
             // Your edits win over the file's tags here too (the library copy already has them).
             in.title = t.title; in.artist = t.artist; in.album = t.album;
             in.albumArtist = t.albumArtist; in.genre = t.genre; in.date = t.date; in.trackNo = t.trackNo;
