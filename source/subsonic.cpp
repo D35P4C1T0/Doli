@@ -105,7 +105,12 @@ bool request(const SubsonicConfig& config, const char* method, const std::string
     std::string base = config.url;
     while (base.back() == '/') base.pop_back();
     uint32_t random[4];
+#ifdef __SWITCH__
+    // FFmpeg's entropy fallback reads a performance counter that Horizon does not permit.
+    randomGet(random, sizeof random);
+#else
     for (auto& value : random) value = av_get_random_seed();
+#endif
     const std::string salt = hex(reinterpret_cast<unsigned char*>(random), sizeof random);
     const std::string url = base + "/rest/" + method + ".view?u=" + encode(config.user) + "&t=" + md5(config.password + salt)
         + "&s=" + salt + "&v=1.16.1&c=GatefoldNX&f=xml" + args;
