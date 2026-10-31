@@ -29,12 +29,11 @@ bool App::iconButton(Id id, const char* icon, float cx, float cy, bool on, float
 }
 
 float App::button(Id id, const char* icon, const std::string& label, float x, float y, bool primary, bool* clicked, bool toggled, bool danger,
-                  uint8_t flags, float minW) {
-    const Font f{ css::Sm, Weight::SemiBold };
+                  uint8_t flags, float minW, float h) {
+    const Font f{ h >= 48 ? 18 : css::Sm, Weight::SemiBold };
     const float iconW = icon ? 16 + 8 : 0;
     const float natural = 16 + iconW + g.measure(label, f) + 16;
     const float w = std::max(natural, minW);   // a column of buttons one width (Settings › Reset)
-    const float h = 34;
     const SDL_FRect r{ x, y, w, h };
     const bool hit = ui.item(id, r, h / 2, flags);
     if (clicked) *clicked = hit;
@@ -456,18 +455,20 @@ bool App::trackRow(Id id, int track, int number, float x, float y, float w, floa
     const float inner = w - pad * 2;
     const float fixed = 44 + 64 + gap * (showAlbum ? 4 : 3);
     const float fr = (inner - fixed) / (showAlbum ? 3.6f : 2.6f);
+    const int textSize = h >= 48 ? 20 : css::Base;
+    const int smallSize = h >= 48 ? 18 : css::Sm;
     const float cy = y + h / 2;
     float cx = x + pad;
     if (playing) eqGlyph(cx + 44 - 13, cy, pal.accentInk);
-    else g.textC(std::to_string(number), { css::Sm }, cx + 44, cy, pal.text3, 1, Align::Right);
+    else g.textC(std::to_string(number), { smallSize }, cx + 44, cy, pal.text3, 1, Align::Right);
     cx += 44 + gap;
-    g.textC(t.title, { css::Base, playing ? Weight::SemiBold : Weight::Regular }, cx, cy, playing ? pal.accentInk : pal.text, 1, Align::Left,
+    g.textC(t.title, { textSize, playing ? Weight::SemiBold : Weight::Regular }, cx, cy, playing ? pal.accentInk : pal.text, 1, Align::Left,
             int(fr * 1.6f));
     cx += fr * 1.6f + gap;
-    g.textC(t.artist, { css::Base }, cx, cy, pal.text2, 1, Align::Left, int(fr));
+    g.textC(t.artist, { textSize }, cx, cy, pal.text2, 1, Align::Left, int(fr));
     cx += fr + gap;
-    if (showAlbum) { g.textC(t.album, { css::Base }, cx, cy, pal.text2, 1, Align::Left, int(fr)); cx += fr + gap; }
-    g.textC(t.duration > 0 ? fmtTime(t.duration) : "", { css::Sm }, cx + 64, cy, pal.text3, 1, Align::Right);
+    if (showAlbum) { g.textC(t.album, { textSize }, cx, cy, pal.text2, 1, Align::Left, int(fr)); cx += fr + gap; }
+    g.textC(t.duration > 0 ? fmtTime(t.duration) : "", { smallSize }, cx + 64, cy, pal.text3, 1, Align::Right);
     return hit;
 }
 

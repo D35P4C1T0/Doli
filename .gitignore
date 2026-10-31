@@ -22,7 +22,8 @@ tools/preview/deps/
 tools/preview/out/
 tools/preview/out-live/
 
-# Developer notes and reference images
+# Internal agent and developer notes
+docs/internal/
 docs/NEXT_SESSION.md
 docs/next-session/
 

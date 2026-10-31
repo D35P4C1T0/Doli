@@ -20,10 +20,10 @@ struct GridLayout {
 };
 GridLayout gridFor(float x, float w) {
     const float inner = w - 36;
-    const int cols = std::max(2, int(inner / 200));
+    const int cols = std::max(2, int(inner / 240));
     const float tw = inner / cols;
     const float cover = tw - 20;
-    return { cols, tw, 10 + cover + 8 + 20 + 2 + 18 + 10, x + 18 };
+    return { cols, tw, 10 + cover + 12 + 26 + 2 + 24 + 10, x + 18 };
 }
 }  // namespace
 
@@ -31,7 +31,7 @@ GridLayout gridFor(float x, float w) {
 bool App::tile(Id id, int coverTrack, float x, float y, float w, bool round, const std::string& title, const std::string& sub,
                const std::vector<int>* quad, uint8_t flags) {
     const float cover = w - 20;
-    const float h = 10 + cover + 8 + 20 + 2 + 18 + 10;
+    const float h = 10 + cover + 12 + 26 + 2 + 24 + 10;
     const bool hit = ui.item(id, { x, y, w, h }, 14, flags);
     const bool hot = ui.pressed(id) || (ui.focused(id) && ui.showFocusRing());
     if (hot) g.roundRect(x, y, w, h, 14, pal.text, ui.pressed(id) ? 0.11f : 0.065f);
@@ -50,8 +50,8 @@ bool App::tile(Id id, int coverTrack, float x, float y, float w, bool round, con
     const float ty = y + 10 + cover + 8;
     const float tx = round ? x + w / 2 : x + 10;
     const Align al = round ? Align::Center : Align::Left;
-    g.text(title, { css::Base, Weight::SemiBold }, tx, ty, pal.text, 1, al, int(cover));
-    g.text(sub, { css::Sm }, tx, ty + 22, pal.text3, 1, al, int(cover));
+    g.text(title, { 20, Weight::SemiBold }, tx, ty, pal.text, 1, al, int(cover));
+    g.text(sub, { 18 }, tx, ty + 28, pal.text3, 1, al, int(cover));
     return hit;
 }
 
@@ -59,22 +59,22 @@ bool App::tile(Id id, int coverTrack, float x, float y, float w, bool round, con
 void App::drawAlbumGrid(float x, float y, float w, float h, float headBottom) {
     // .lib-tools: the sort select, as a button that cycles
     static const char* sorts[] = { "By artist", "By title", "By year", "By folder" };
-    const Font sf{ css::Sm };
-    const float sw = g.measure(sorts[librarySort], sf) + 20 + 26, sx = x + w - 28 - sw, sy = headBottom - 14 - 32;
+    const Font sf{ 18 };
+    const float sw = g.measure(sorts[librarySort], sf) + 20 + 26, sx = x + w - 28 - sw, sy = headBottom - 12 - 48;
     const Id sid = uid("lib.sort");
-    if (ui.item(sid, { sx, sy, sw, 32 }, 8)) {
+    if (ui.item(sid, { sx, sy, sw, 48 }, 8)) {
         librarySort = (librarySort + 1) % 4;
         rebuildIndex();
     }
     const bool hot = ui.focused(sid) && ui.showFocusRing();
-    g.roundRect(sx, sy, sw, 32, 8, pal.text, hot ? 0.11f : 0.065f);
-    g.roundStroke(sx, sy, sw, 32, 8, 1, pal.text, 0.15f);
-    g.textC(sorts[librarySort], sf, sx + 10, sy + 16, pal.text);
-    g.icon(ICON_CHEV, sx + sw - 16, sy + 16, 14, pal.text3);
+    g.roundRect(sx, sy, sw, 48, 8, pal.text, hot ? 0.11f : 0.065f);
+    g.roundStroke(sx, sy, sw, 48, 8, 1, pal.text, 0.15f);
+    g.textC(sorts[librarySort], sf, sx + 10, sy + 24, pal.text);
+    g.icon(ICON_CHEV, sx + sw - 16, sy + 24, 14, pal.text3);
     const bool reading = meta.taggedCount() < int(lib.tracks.size());
     if (reading) {
         const int pct = lib.tracks.empty() ? 100 : meta.taggedCount() * 100 / int(lib.tracks.size());
-        g.textC("Reading tags · " + std::to_string(pct) + "%", { css::Xs }, sx - 14, sy + 16, pal.text3, 1, Align::Right);
+        g.textC("Reading tags · " + std::to_string(pct) + "%", { css::Xs }, sx - 14, sy + 24, pal.text3, 1, Align::Right);
     }
 
     if (lib.albums.empty()) {

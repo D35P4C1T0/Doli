@@ -66,7 +66,7 @@ struct Store {
     // The list views (ListMode) of the playlists, Folders and Library → Tracks, and the Library's tab
     int viewPlaylist = 1, viewFolders = 2, viewTracks = 1, viewGenre = 1;   // viewGenre: a genre's or an artist's Tracks tab
     int viewPlaylists = 2;     // the Playlists page: tiles
-    int libTab = 1;            // 0 Albums, 1 Tracks, 2 Folders
+    int libTab = 0;            // 0 Albums, 1 Tracks, 2 Folders
     int tracksSort = 0;        // by artist, title, album, year, genre, length
     bool tracksDesc = false;
     int theme = 0;                  // 0 from the cover, 1 Dark, 3 Light (theme.js FIXED), 4 Custom; 2 was Grey, read as Dark
@@ -122,7 +122,7 @@ struct Store {
     static std::string joinKey(const std::string& playlist, const std::string& a, const std::string& b) { return playlist + '\t' + a + '\t' + b; }
     // Sidebar tabs hidden in Settings → Appearance: bit 0 Playlist, 1 Artists, 2 Genres, 3 Library, 4 Folders, 5 Albums, 6 Files
     // (Files is hidden until shown: a settings.txt from before it existed gets bit 6 too, Store::load)
-    unsigned hiddenTabs = 64;
+    unsigned hiddenTabs = 118;   // Albums, Artists, Genres, Folders and Files stay available in Appearance.
     // The sidebar's tabs in your order (Settings → Appearance → Sidebar); Settings stays at the bottom
     enum Tab { TabNow, TabQueue, TabAlbums, TabArtists, TabGenres, TabFolders, TabLibrary, TabFiles, TabCount };
     // Lines between the tabs, placed as you like (Settings → Appearance → Sidebar: Add a line, Move, Remove): ids TabLine + k
@@ -137,7 +137,7 @@ struct Store {
         return tab >= 0 && tab < TabCount ? names[tab] : "Line";
     }
     // (a line above Files by default: it had one of its own before lines could be placed)
-    std::vector<int> tabOrder = { TabNow, TabQueue, TabAlbums, TabArtists, TabGenres, TabFolders, TabLibrary, TabLine, TabFiles };
+    std::vector<int> tabOrder = { TabLibrary, TabNow, TabQueue, TabAlbums, TabArtists, TabGenres, TabFolders, TabLine, TabFiles };
     bool showHidden = false;   // Files: names starting with a dot
     // Settings → Storage and reset → Folders: where each browser starts (empty: its own default)
     std::string filesDir, importDir, exportDir, coverDir, backupDir;

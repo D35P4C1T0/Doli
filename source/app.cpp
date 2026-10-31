@@ -120,6 +120,7 @@ bool App::init() {
     }
     else if (player.remote() && bgAdoptQueue()) {}   // the background player's queue, playing or not, wins
     else if (store.resume && !store.subsonic.enabled) restoreSession();
+    if (now.track < 0 && !store.musicRoot.empty() && !store.subsonic.enabled) navigate(View::Library, -1, {}, false);
     subRestore_ = store.resume && store.subsonic.enabled;
     startMark("queue");
     ui.focusDefault();

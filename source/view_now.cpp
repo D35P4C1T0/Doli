@@ -1,7 +1,7 @@
 /*
  * Gatefold NX · view_now.cpp
  * #view-now: cover on the left, .np-info on the right (kicker, title, artist,
- * album, badges, actions, spectrum, tabs, panel), and the full-screen Canvas.
+ * album, actions, tabs, panel), and the full-screen Canvas.
  */
 #include <algorithm>
 #include <cmath>
@@ -16,7 +16,7 @@ float clampf(float v, float lo, float hi) { return std::min(hi, std::max(lo, v))
 void App::drawNow(float x, float y, float w, float h) {
     // .np grid: padding clamp(16px, 3vh, 40px) clamp(20px, 4vw, 64px); gap clamp(24px, 4vw, 64px)
     const float padH = clampf(css::W * 0.04f, 20, 64), gap = clampf(css::W * 0.04f, 24, 64);
-    const float art = std::min({ css::H * 0.52f, css::W * 0.40f, 620.f });
+    const float art = std::min(340.f, h - 180.f);
     const float iw = std::min(760.f, w - padH * 2 - art - gap);
     const bool has = now.track >= 0;
     // Automix joining (automixFocus): the cover glides from its place to the middle of the screen and grows, frosted with
@@ -29,7 +29,7 @@ void App::drawNow(float x, float y, float w, float h) {
     const bool imm = mode == 1;
     const float big = imm ? std::min(h - 48.f, art * 1.2f) : std::min(css::H - 140.f, art * 1.35f);
     const float art2 = art + (big - art) * m;
-    const float rx = x + padH, ry = y + (h - art) / 2;   // at rest
+    const float rx = x + padH, ry = y + 24;   // at rest
     const float gx = imm ? x + w / 2 : css::W / 2.f, gy = imm ? y + h / 2 : css::H / 2.f;
     const float ax = rx + (gx - big / 2 - rx) * m, ay = ry + (gy - big / 2 - ry) * m;
     const float ix = x + padH + art + gap + 28 * (1 - fc.ui);   // the info at its own place, drifting right as it fades
@@ -39,7 +39,6 @@ void App::drawNow(float x, float y, float w, float h) {
     if (mode == 2 && has && mixOld.on) pageWipe_.on = true;
     // the info column, from the title to Up next or the lyrics, swipes as one (App::wipeGroup_)
     struct GroupOff { WipeGroup& w; ~GroupOff() { w.on = false; } } groupOff{ wipeGroup_ };
-    if (pageWipe_.on) wipeGroup_ = { true, ix, ix + iw };
     if (m > 0) {   // drawn last by App::draw, over the bars and outside the page's clip
         glideCover_ = { ax, ay, art2, art2 };
         glideOn_ = true;
@@ -57,32 +56,31 @@ void App::drawNow(float x, float y, float w, float h) {
     std::vector<std::string> title = g.wrap(titleText, titleF, int(iw), 2);
     if (title.size() > 1) { titleF.size = 42; title = g.wrap(titleText, titleF, int(iw), 2); }
     const float titleLH = std::round(titleF.size * 1.04f);
-    auto badgesOf = [&](const TrackInfo& in) {
-        std::vector<std::string> bs;
-        if (!in.codec.empty()) bs.push_back(in.codec);
-        char b[48];
-        if (in.bitsPerSample && in.codec != "MP3") { snprintf(b, sizeof b, "%d-bit", in.bitsPerSample); bs.push_back(b); }
-        if (in.sampleRate) { snprintf(b, sizeof b, "%g kHz", in.sampleRate / 1000.0); bs.push_back(b); }
-        if (in.bitrateKbps) bs.push_back(std::to_string(in.bitrateKbps) + " kbps");
-        return bs;
-    };
-    std::vector<std::string> badges;
-    if (has) badges = badgesOf(now.info);
-    // Gatefold's column is sized for a desktop window; on 720 p the fixed rows are tightened and the spectrum
-    // shrinks (then folds away) so .np-panel keeps at least four Up next rows and five synced lyric lines.
-    const float padT = 16, padB = 10;
-    const float titleH = 4 + title.size() * titleLH + 2;
-    auto fixedH = [&](float vizH) {
-        return 17 + titleH + 4 + 31 + 2 + 22 + (badges.empty() ? 0 : 10 + 22) + (has ? 12 + 34 : 0) + (vizH > 0 ? 14 + vizH : 0) + 8 + 35 + 6;
-    };
-    const float avail = h - padT - padB;
-    // What the panel must keep: four .up-rows, but for a two-line title three rows and the whole Palette tab
-    // (drawPaletteTab's height) are enough, and the bars keep their height rather than shrinking to a sliver.
-    const float paletteH = 8 + 26 + 10 + 4 * 30 + 8 + 20;
-    const float wantPanel = title.size() > 1 ? std::max(8 + 3 * 52.f, paletteH) : 8 + 4 * 52;
-    const float vizH = store.showSpectrum ? clampf(avail - fixedH(0) - 14 - wantPanel, 28, 46) : 0;
-    const float panelH = std::max(96.f, avail - fixedH(vizH));
+    const float padT = 24, padB = 16;
     float cy = y + padT;
+
+    // Keep transport beside the music, with the same shortcuts as the player bar.
+    const float mid = rx + art / 2, controlsY = ry + art + 52;
+    hint(uid("np.prev"), "L · Previous");
+    hint(uid("np.play"), "X · Play / pause");
+    hint(uid("np.next.control"), "R · Next");
+    if (iconButton(uid("np.prev"), ICON_PREV, mid - 88, controlsY, false, 64, 26)) prev();
+    g.circle(mid, controlsY, 32, pal.accent);
+    if (ui.item(uid("np.play"), { mid - 32, controlsY - 32, 64, 64 }, 32, DefaultFocus)) togglePlay();
+    g.icon(isPlaying() ? ICON_PAUSE : ICON_PLAY, mid, controlsY, 28, pal.onAccent);
+    if (iconButton(uid("np.next.control"), ICON_NEXT, mid + 88, controlsY, false, 64, 26)) next(false);
+    ui.link(uid("np.prev"), 1, 0, uid("np.play"));
+    ui.link(uid("np.play"), -1, 0, uid("np.prev"));
+    ui.link(uid("np.play"), 1, 0, uid("np.next.control"));
+    ui.link(uid("np.next.control"), -1, 0, uid("np.play"));
+    for (const char* key : { "np.prev", "np.play", "np.next.control" }) ui.link(uid(key), 0, 1, uid("np.seek"));
+    ui.link(uid("np.seek"), 0, -1, uid("np.play"));
+    const float seekY = controlsY + 48;
+    drawSeek(rx, seekY, art, 40, uid("np.seek"));
+    g.textC(has ? fmtTime(player.position()) : "0:00", { 18 }, rx, seekY + 58, pal.text2);
+    g.textC(has ? fmtTime(now.info.duration) : "0:00", { 18 }, rx + art, seekY + 58, pal.text2, 1, Align::Right);
+
+    if (pageWipe_.on) wipeGroup_ = { true, ix, ix + iw };
 
     // .np-kicker
     eqGlyph(ix, cy + 8, pal.accentInk);
@@ -120,88 +118,37 @@ void App::drawNow(float x, float y, float w, float h) {
     }
     else meta(false);
     cy += title.size() * titleLH + 2 + 4 + 31 + 2 + 22;
-    // .np-badges: the codec chip is the accent one
-    if (!badges.empty()) {
-        cy += 10;
-        auto badgeRow = [&](bool old) {   // (in a Simple join, the outgoing song's give way to the next one's)
-            const std::vector<std::string> bs = old ? badgesOf(mixOld.info) : badges;
-            float bx = ix;
-            for (size_t i = 0; i < bs.size(); i++) bx += chip(bs[i], bx, cy + 11, i == 0) + 6;
-            // The first genre, as a chip that opens its page
-            const int tr = old ? mixOld.track : now.track;
-            if (tr < 0 || tr >= int(lib.tracks.size())) return;
-            const std::string& gs = lib.tracks[tr].genre;
-            const std::string g1 = gs.substr(0, gs.find(';'));
-            if (!g1.empty()) {
-                const Font gf{ css::Xs, Weight::SemiBold };
-                const float gw = g.measureSpaced(g1, gf, 0.02f) + 16 + 18;
-                const Id gid = uid("np.genre");
-                if (!old && ui.item(gid, { bx, cy, gw, 22 }, 6)) openGenre(g1);
-                const bool hot = !old && (ui.pressed(gid) || (ui.focused(gid) && ui.showFocusRing()));
-                g.roundRect(bx, cy, gw, 22, 6, pal.text, hot ? 0.13f : 0.065f);
-                g.roundStroke(bx, cy, gw, 22, 6, 1, pal.text, 0.09f);
-                g.icon(ICON_TAG, bx + 13, cy + 11, 12, pal.text2);
-                g.textSpaced(g1, gf, bx + 8 + 18, cy + 11, 0.02f, pal.text2);
-            }
-        };
-        if (pageWipe_.on) wiped(ix, ix + iw, cy, cy + 22, badgeRow);
-        else badgeRow(false);
-        cy += 22;
-    }
-    // .np-actions
+    // Track metadata, artist, folder and editing remain in the existing More sheet.
     if (has) {
-        cy += 12;
+        cy += 20;
         const Track& t = lib.tracks[now.track];
-        const bool liked = store.isLiked(t.path);
-        float bx = ix;
         bool clicked = false;
-        bx += button(uid("np.like"), liked ? ICON_HEART_F : ICON_HEART, liked ? "Liked" : "Add to Liked", bx, cy, false, &clicked, liked, false,
-                     DefaultFocus) + 8;
-        if (clicked) { store.toggleLiked(t.path); store.save(); toast(liked ? "Removed from Liked" : "Added to Liked"); }
+        float bx = ix;
         if (t.albumIdx >= 0) {
-            bx += button(uid("np.album"), ICON_GRID, "Album", bx, cy, false, &clicked) + 8;
+            bx += button(uid("np.album"), ICON_GRID, "Album", bx, cy, false, &clicked, false, false, 0, 0, 48) + 12;
             if (clicked) goToAlbum(t.albumIdx);
         }
-        bx += button(uid("np.artist"), ICON_MIC, "Artist", bx, cy, false, &clicked) + 8;
-        if (clicked) openArtist(t.artist);
-        if (t.subsonicId.empty()) {
-            bx += button(uid("np.folder"), ICON_FOLDER, "Folder", bx, cy, false, &clicked) + 8;
-            if (clicked && tabFor(Store::TabFolders, "folder")) navigate(View::Folders, lib.folderByPath(t.folder));
-        }
-        {
-            // .np-actions .more: the track menu (also + on the controller)
-            const Id mid = uid("np.more");
-            if (ui.item(mid, { bx, cy, 34, 34 }, 17)) openTrackMenu(now.track);
-            const bool hot = ui.pressed(mid) || (ui.focused(mid) && ui.showFocusRing());
-            g.roundRect(bx, cy, 34, 34, 17, pal.text, hot ? 0.11f : 0.065f);
-            g.roundStroke(bx, cy, 34, 34, 17, 1, pal.text, 0.15f);
-            g.icon(ICON_MORE, bx + 17, cy + 17, 16, pal.text);
-        }
-        cy += 34;
+        button(uid("np.more"), ICON_MORE, "More", bx, cy, false, &clicked, false, false, 0, 0, 48);
+        if (clicked) openTrackMenu(now.track);
+        cy += 48;
     }
-    // #viz
-    const float vizTop = cy;   // (the Lyrics tab's swipe light stops above it)
-    if (vizH > 0) {
-        cy += 14;
-        drawSpectrum(ix, cy, iw, vizH);
-        cy += vizH;
-    }
+    const float vizTop = cy;
     // .np-tabs
     cy += 8;
     static const char* tabs[] = { "Up next", "Lyrics", "Palette" };
     float tx = ix;
-    const Font tabF{ css::Sm, Weight::SemiBold };
+    const Font tabF{ 18, Weight::SemiBold };
     for (int i = 0; i < 3; i++) {
         const float tw = g.measure(tabs[i], tabF) + 24;
         const Id id = uid("np.tab", i);
-        if (ui.item(id, { tx, cy, tw, 35 }, 6)) { npTab = i; area("np.panel").target = area("np.panel").y = 0; }
+        if (ui.item(id, { tx, cy, tw, 48 }, 6)) { npTab = i; area("np.panel").target = area("np.panel").y = 0; }
         const bool on = npTab == i, hot = ui.focused(id) && ui.showFocusRing();
-        g.textC(tabs[i], tabF, tx + 12, cy + 17, on || hot ? pal.text : pal.text3);
-        if (on) g.roundRect(tx + 12, cy + 34, tw - 24, 2, 1, pal.accent);
+        g.textC(tabs[i], tabF, tx + 12, cy + 24, on || hot ? pal.text : pal.text3);
+        if (on) g.roundRect(tx + 12, cy + 46, tw - 24, 2, 1, pal.accent);
         tx += tw + 4;
     }
-    g.rect(ix, cy + 35, iw, 1, pal.text, 0.09f);
-    cy += 35 + 6;
+    g.rect(ix, cy + 48, iw, 1, pal.text, 0.09f);
+    cy += 48 + 6;
 
     // The next track's title, artist and album in these fonts, rendered ahead a couple a frame (Gfx::warm),
     // so a track change does not begin with a frame spent rendering them.
@@ -221,7 +168,7 @@ void App::drawNow(float x, float y, float w, float h) {
     }
 
     // .np-panel
-    const float ph = std::min(panelH, y + h - padB - cy);
+    const float ph = y + h - padB - cy;
     if (npTab == 0) drawUpNext(ix, cy, iw, ph);
     else if (npTab == 1) drawLyrics(ix, cy, iw, ph);
     else drawPaletteTab(ix, cy, iw, ph);
@@ -365,11 +312,11 @@ void App::drawUpNext(float x, float y, float w, float h) {
             }
             coverBox(t, x, ry + 6, 40, 6);
             const std::string dur = tr.duration > 0 ? fmtTime(tr.duration) : "";
-            const int dw = g.measure(dur, { css::Sm });
+            const int dw = g.measure(dur, { 16 });
             const int tw = int(w - 52 - dw - 20);
-            g.text(tr.title, { css::Base, Weight::SemiBold }, x + 52, ry + 7, pal.text, 1, Align::Left, tw);
-            g.text(trackSub(t), { css::Sm }, x + 52, ry + 27, pal.text3, 1, Align::Left, tw);
-            g.textC(dur, { css::Sm }, x + w, ry + 26, pal.text3, 1, Align::Right);
+            g.text(tr.title, { 18, Weight::SemiBold }, x + 52, ry + 7, pal.text, 1, Align::Left, tw);
+            g.text(trackSub(t), { 16 }, x + 52, ry + 27, pal.text3, 1, Align::Left, tw);
+            g.textC(dur, { 16 }, x + w, ry + 26, pal.text3, 1, Align::Right);
         }
     };
     if (give) wiped(x - 8, x + w + 8, y, y + h, [&](bool old) { rows(old ? mixOld.upNext : nextTracks, !old); });

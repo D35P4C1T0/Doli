@@ -800,7 +800,7 @@ private:
     // ================= widgets.cpp: Gatefold's components
     bool iconButton(Id id, const char* icon, float cx, float cy, bool on = false, float size = 34, float iconSize = 18, uint8_t flags = 0);
     float button(Id id, const char* icon, const std::string& label, float x, float y, bool primary = false, bool* clicked = nullptr,
-                 bool toggled = false, bool danger = false, uint8_t flags = 0, float minW = 0);   // minW: at least this wide, its content centred
+                 bool toggled = false, bool danger = false, uint8_t flags = 0, float minW = 0, float h = 34);   // minW: at least this wide, its content centred
     float chip(const std::string& label, float x, float cy, bool accent);
     float automixChip(const std::string& label, float x, float cy, float k, float alpha, bool lap = true, bool glass = false);   // animated, while Automix joins
     /** Now playing's cover frosted over during a join (its beat-scaled box), the hint inside, centred on (hx, hy) and sized

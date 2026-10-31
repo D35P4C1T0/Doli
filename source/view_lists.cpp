@@ -311,6 +311,7 @@ void App::drawAlbum(float x, float y, float w, float h) {
     const int a = routeAlbum();
     if (a < 0) { viewHead("Album", "Not in the library", "Its tags changed or the music folder was rescanned.", x, y, w); return; }
     const Album& al = lib.albums[a];
+    constexpr float RowH = 56;
 
     ScrollArea& sa = area("album", a);
     const float heroH = 26 + 220 + 22;
@@ -328,7 +329,7 @@ void App::drawAlbum(float x, float y, float w, float h) {
     const float tx = cx + 220 + 28, tw = w - (tx - x) - 30;
     const Font h1{ 46, Weight::ExtraBold };
     const std::vector<std::string> lines = g.wrap(al.title, h1, int(tw), 2);
-    float ty = cyTop + 220 - 34 - 16 - 22 - 8 - lines.size() * 48 - 6 - 18;
+    float ty = cyTop + 220 - 48 - 8 - 22 - 8 - lines.size() * 48 - 6 - 18;
     kicker("Album", tx, ty + 8, pal.text3);
     ty += 18 + 6;
     for (const auto& l : lines) { g.text(l, h1, tx - 2, ty - 4, pal.text, 1, Align::Left, int(tw)); ty += 48; }
@@ -337,27 +338,15 @@ void App::drawAlbum(float x, float y, float w, float h) {
     if (!al.artist.empty()) mx += g.text(al.artist, { css::Base, Weight::SemiBold }, mx, ty, pal.text);
     std::string rest = (al.year.empty() ? "" : " · " + al.year) + " · " + fmtTotal(al.tracks);
     g.text(rest, { css::Base }, mx, ty, pal.text2, 1, Align::Left, int(tx + tw - mx));
-    ty += 22 + 16;
+    ty += 22 + 8;
 
     float bx = tx;
     bool clicked = false;
     const std::string name = al.title;
-    bx += button(uid("al.play"), ICON_PLAY, "Play", bx, ty, true, &clicked, false, false, DefaultFocus) + 8;
-    if (clicked) playTracks(al.tracks, 0, name);
-    bx += button(uid("al.shuffle"), ICON_SHUFFLE, "Shuffle", bx, ty, false, &clicked) + 8;
-    if (clicked) playTracks(al.tracks, 0, name, true);
-    bx += button(uid("al.artist"), ICON_MIC, "Artist", bx, ty, false, &clicked) + 8;
-    if (clicked) openArtist(al.artist);
-    bx += button(uid("al.folder"), ICON_FOLDER, "Folder", bx, ty, false, &clicked) + 8;
-    if (clicked) navigate(View::Folders, lib.folderByPath(lib.tracks[al.tracks[0]].folder));
-    {
-        const std::string& gs = lib.tracks[al.tracks[0]].genre;
-        const std::string g1 = gs.substr(0, gs.find(';'));
-        if (!g1.empty()) {
-            bx += button(uid("al.genre"), ICON_TAG, g1, bx, ty, false, &clicked) + 8;
-            if (clicked) openGenre(g1);
-        }
-    }
+    bx += button(uid("al.play"), ICON_PLAY, "Play album", bx, ty, true, &clicked, false, false, DefaultFocus, 0, 48) + 12;
+    if (clicked) { playTracks(al.tracks, 0, name); navigate(View::Now); }
+    button(uid("al.shuffle"), ICON_SHUFFLE, "Shuffle", bx, ty, false, &clicked, false, false, 0, 0, 48);
+    if (clicked) { playTracks(al.tracks, 0, name, true); navigate(View::Now); }
 
     const float ly = oy + heroH;
     listHead(x, ly, w, false);
@@ -366,7 +355,10 @@ void App::drawAlbum(float x, float y, float w, float h) {
     for (int i = 0; i < int(al.tracks.size()); i++) {
         const float ry = top + i * RowH;
         if (ry + RowH < y - RowH || ry > y + h + RowH) continue;
-        if (trackRow(uid("row", i), al.tracks[i], i + 1, x + 14, ry, w - 28, RowH, false)) playTracks(al.tracks, i, name);
+        if (trackRow(uid("row", i), al.tracks[i], i + 1, x + 14, ry, w - 28, RowH, false)) {
+            playTracks(al.tracks, i, name);
+            navigate(View::Now);
+        }
     }
     g.unclip();
     ui.popArea();

@@ -83,6 +83,8 @@ GitHub Actions builds the release NRO on pushes and pull requests. Open **Action
 
 Run `bash tools/tests/run.sh` for host regression checks (C++20; FFmpeg is optional for a generated AAC fixture). Run `bash tools/tests/subsonic.sh` for local mock-server checks (Python 3, curl, libxml2 and FFmpeg development libraries through `pkg-config`).
 
+For the exact Eden launch attempt, its known startup failure, and the working Ryujinx fallback, see [Emulator testing](docs/emulator-testing.md).
+
 The Windows UI preview is a development tool, with Subsonic disabled. Build it with `tools/preview/build.sh`; its output is `doli-preview.exe`. `GF_ROOT` selects a fake SD card, `GF_SHOW=1` opens its window, and `GF_SCRIPT` supplies scripted input. These existing environment-variable names remain compatible.
 
 Brand assets are generated with Pillow: `tools/brand/wordmark.py` writes the app's wordmark, `tools/brand/icon.py` writes the launcher icon, and `tools/brand/wordmark-png.py` writes README wordmarks (also requires numpy).

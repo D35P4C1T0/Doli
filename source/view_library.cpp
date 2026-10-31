@@ -239,19 +239,17 @@ void App::drawLibrary(float x, float y, float w, float h) {
         const int n = root >= 0 ? int(lib.folders[root].children.size()) : 0;
         sub = std::to_string(n) + (n == 1 ? " folder · " : " folders · ") + std::to_string(lib.tracks.size()) + " tracks";
     }
-    // .view-head with the tab switch at its right (Albums | Tracks | Folders)
-    float cy = y + 18 + 8;
-    kicker("Library", x + 28, cy, pal.text3);
-    cy += 10;
-    g.text(tabs[tab], { css::Xxl, Weight::Bold }, x + 28, cy, pal.text, 1, Align::Left, int(w - 56 - 330));
-    cy += 38;
-    g.text(sub, { css::Sm }, x + 28, cy + 4, pal.text3, 1, Align::Left, int(w - 56 - 330));
-    int picked = -1;
-    segmented(uid("lib.tab"), x + w - 28, y + 52, { "Albums", "Tracks", "Folders" }, tab, &picked);
-    if (picked >= 0 && picked != tab) { store.libTab = picked; persistSoon(0.5f); }
-    const float top = cy + 22 + 14;
+    g.text("Library", { css::Xxl, Weight::Bold }, x + 28, y + 20, pal.text);
+    g.text(sub, { 18 }, x + 28, y + 64, pal.text2, 1, Align::Left, int(w - 56));
+    float tx = x + 28;
+    for (int i = 0; i < 3; i++) {
+        bool picked = false;
+        tx += button(uid("lib.tab", i), nullptr, tabs[i], tx, y + 100, false, &picked, tab == i, false, 0, 132, 48) + 12;
+        if (picked && i != tab) { store.libTab = i; persistSoon(0.5f); ui.focusDefault(); }
+    }
+    const float top = y + 164;
 
-    if (tab == 0) { drawAlbumGrid(x, y, w, h, top + 46); return; }
+    if (tab == 0) { drawAlbumGrid(x, y, w, h, top + 60); return; }
     if (tab == 1) { drawTracksTab(x, y, w, h, top); return; }
     drawFoldersTab(x, y, w, h, top);
 }

@@ -16,4 +16,10 @@ if command -v ffmpeg >/dev/null; then
 else
     ./mp4
 fi
+if command -v sdl2-config >/dev/null; then
+    "$cxx" -std=c++20 -Wall -Wextra -I"$(sdl2-config --prefix)/include" "$repo/tools/tests/ui.cpp" "$repo/source/ui.cpp" -o "$out/ui"
+    ./ui
+else
+    echo 'UI input checks skipped: SDL2 development headers unavailable'
+fi
 echo 'Host regression checks passed'

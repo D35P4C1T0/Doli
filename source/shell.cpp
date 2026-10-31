@@ -307,10 +307,12 @@ void App::drawSidebar() {
     // how far open (App::sideOpen): the labels come in over its second half, settling 8 px towards the icons
     const float open = sideOpen(), lab = std::clamp((open - 0.4f) / 0.6f, 0.f, 1.f), labA = lab * lab * (3 - 2 * lab);
     float y = css::TbH + 6;
-    const Font navFont{ css::Base, Weight::SemiBold };
+    const bool handheld = route.view == View::Library || route.view == View::Albums || route.view == View::Album || route.view == View::Now;
+    const Font navFont{ handheld ? 18 : css::Base, Weight::SemiBold };
 
     auto navItem = [&](const char* key, const char* icon, const std::string& label, bool active, const std::string& badge, float h, Font f,
                        int ref = 0, bool playingHere = false) {
+        if (handheld && h == 38) h = 48;
         const Id id = uid(key, ref);
         const bool hit = ui.item(id, { x0, y, w, h }, 9);
         const bool hot = ui.pressed(id) || (ui.focused(id) && ui.showFocusRing());
@@ -575,6 +577,26 @@ void App::drawPlayerbar() {
     const float y0 = css::H - css::BarH, cy = y0 + css::BarH / 2;
     g.rect(0, y0, css::W, css::BarH, pal.bg, 0.8f);   // --panel-strong
     g.rect(0, y0, css::W, 1, pal.text, 0.09f);
+
+    // The handheld pilot keeps secondary playback tools in Settings and the track menu.
+    if (route.view == View::Library || route.view == View::Albums || route.view == View::Album || route.view == View::Now) {
+        const bool onNow = route.view == View::Now;
+        if (!onNow) {
+            if (iconButton(uid("pb.play"), isPlaying() ? ICON_PAUSE : ICON_PLAY, 48, cy, true, 64, 28)) togglePlay();
+            g.text(now.track >= 0 ? now.info.title : "Choose an album to start", { 20, Weight::SemiBold }, 100, y0 + 20, pal.text, 1, Align::Left, 420);
+            g.text(now.track >= 0 ? now.info.artist : "Library → Album → Now playing", { 18 }, 100, y0 + 48, pal.text2, 1, Align::Left, 420);
+        } else {
+            g.textC("A Select    B Back    X Play / pause", { 18, Weight::SemiBold }, 28, cy, pal.text2);
+        }
+        bool clicked = false;
+        button(uid("pb.primary"), onNow ? ICON_GRID : ICON_DISC, onNow ? "Library" : "Now playing", 556, y0 + 22,
+               false, &clicked, false, false, 0, 180, 48);
+        if (clicked) { if (onNow) libFrom = View::Library; navigate(onNow ? View::Library : View::Now); }
+        button(uid("pb.queue"), ICON_QUEUE, "Queue", 752, y0 + 22, false, &clicked, false, false, 0, 128, 48);
+        if (clicked) navigate(View::Queue);
+        g.textC(onNow ? "L / R  Skip    + More" : "A Open    B Back    Y Search", { 18 }, css::W - 28, cy, pal.text2, 1, Align::Right);
+        return;
+    }
 
     const float pad = 18, gap = 20, total = css::W - pad * 2 - gap * 2;
     const float leftW = total / 4, centerW = total / 2;
@@ -1027,5 +1049,5 @@ void App::drawFocusRing() {
     if (r.w <= 0) return;
     // :focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px }
     const float rad = ui.radiusOf(id) + 3;
-    g.roundStroke(r.x - 4, r.y - 4, r.w + 8, r.h + 8, rad, 2, pal.accentInk);
+    g.roundStroke(r.x - 4, r.y - 4, r.w + 8, r.h + 8, rad, 4, pal.accentInk);
 }
