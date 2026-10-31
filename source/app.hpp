@@ -11,6 +11,7 @@
 #include <map>
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <thread>
 #include <string>
 #include <unordered_map>
@@ -24,6 +25,7 @@
 #include "report.hpp"
 #include "library.hpp"
 #include "loader.hpp"
+#include "lyrics.hpp"
 #include "metacache.hpp"
 #include "metadata.hpp"
 #include "palette.hpp"
@@ -50,8 +52,6 @@ enum class View { Now, Queue, Artists, Artist, Genres, Genre, Library, Album, Fo
 
 /** Gatefold 1.4.2's four list views (.pl-modes): by album, with covers, as tiles, as a plain list. */
 enum class ListMode { Albums = 0, Covers = 1, Grid = 2, List = 3 };
-
-struct LyricLine { double t; std::string text; };
 
 /** An artist or a genre: its name, the albums under it and every track, albums or not. */
 struct Artist {
@@ -170,10 +170,8 @@ private:
         SDL_Texture* frost = nullptr;      // the cover blurred smooth (TrackLoader's frost): Automix's join
         SDL_Texture* prevFrost = nullptr;
         float fade = 1;
-        std::vector<LyricLine> lyrics;
-        bool synced = false;
+        Lyrics lyrics;
         std::string lyricsSource;
-        double lrcOffset = 0;   // the .lrc's own [offset:], in seconds (already taken off the lines' times)
         bool lyricsFromFile = false;   // from an .lrc file beside the track, rather than its tags
         bool loading = false;   // its tags, lyrics and cover are on their way (TrackLoader)
     } now;
@@ -186,7 +184,7 @@ private:
     void seekLyric(int line);     // a tapped line: the music goes to where that line now shows
     /** The timing control shows: synced lyrics, the setting on, and from a source it is wanted for (Settings → Lyrics). */
     bool lyricTimingShown() const {
-        return store.lyricTiming && now.synced && !now.lyrics.empty() &&
+        return store.lyricTiming && now.lyrics.synced && !now.lyrics.lines.empty() &&
                (store.lyricTimingFor == 2 || (store.lyricTimingFor == 1) == now.lyricsFromFile);
     }
     /** "Earlier · 0.3 s · Later": the nudge's control (the Lyrics tab, the Canvas). Returns its width. */
@@ -247,8 +245,7 @@ private:
     struct MixOld {
         bool on = false;
         TrackInfo info;
-        std::vector<LyricLine> lyrics;
-        bool synced = false;
+        Lyrics lyrics;
         std::string lyricsSource;
         std::vector<int> upNext;     // its Up next (the next one first)
         std::vector<float> wave;     // its seek bar's waveform (Waveform::peaks), empty if it had none yet
@@ -718,11 +715,9 @@ private:
     struct Grab { enum Kind { Queue, Playlists, Tabs, List } kind = Queue; int pos = -1; bool upNext = false; int cols = 1; int ref = -1; } grab;
     void grabStep(int d);
     void grabDrop();
-    void applyLoaded(TrackLoader::Result& r);
-    void applyCover(TrackLoader::Result& r);
-    TrackLoader::Result coverWait_;   // a loaded cover kept for the frame after its tags (one thing at a time)
-    bool coverWaiting_ = false;
-    void parseLyrics(const std::string& text);
+    void applyLoaded(TrackLoader::Result r);
+    void applyCover(TrackLoader::Result r);
+    std::optional<TrackLoader::Result> coverWait_;   // uploaded the frame after its tags
 
     void navigate(View v, int ref = -1, const std::string& query = {}, bool push = true);
     unsigned pickerGen = 0;   // the folder pickers list a folder again when it bumps (opened anew, a file written there)

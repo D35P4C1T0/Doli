@@ -10,6 +10,7 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -20,6 +21,8 @@
 
 class TrackLoader {
 public:
+    using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)>;
+
     struct Request {
         unsigned gen = 0;
         std::string path, folder;
@@ -33,19 +36,18 @@ public:
         TrackInfo info;                  // without the cover bytes
         std::string lyrics;              // the .lrc file's, else the tag's
         bool sidecar = false;            // the lyrics came from an .lrc file
-        SDL_Surface* cover = nullptr;    // RGBA32, at most 512 px: the GPU path has no mipmaps (Gfx::shrink)
-        SDL_Surface* blur = nullptr;     // 12×12, stretched with linear filtering for the backdrop
-        SDL_Surface* frost = nullptr;    // 64×64, blurred (three box passes): the cover frosted while Automix joins
+        Surface cover{ nullptr, SDL_FreeSurface };   // RGBA32, at most 512 px (Gfx::shrink)
+        Surface blur{ nullptr, SDL_FreeSurface };    // 12×12, stretched with linear filtering for the backdrop
+        Surface frost{ nullptr, SDL_FreeSurface };   // 64×64, blurred (three box passes): Automix's frost
         std::vector<uint8_t> px;         // the 64×64 sample the palette came from (Brightness and Saturation rebuild it)
         Palette pal;
-        void release();
     };
 
     void start();
     void stop();
     /** Replaces whatever is waiting: only the newest track matters. */
     void request(Request r);
-    /** The newest finished result, once. The caller frees its surfaces (Result::release). */
+    /** Moves the newest finished result to the caller, once, including ownership of its surfaces. */
     bool take(Result& out);
 
 private:

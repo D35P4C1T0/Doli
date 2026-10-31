@@ -337,6 +337,7 @@ void App::shutdown() {
     }
     wave.cancel();
     loader.stop();
+    coverWait_.reset();
     if (libCheck_.joinable()) libCheck_.join();
     if (tracksView.thread.joinable()) tracksView.thread.join();
     if (fileWork.thread.joinable()) fileWork.thread.join();   // a copy finishes before Gatefold goes
@@ -717,8 +718,15 @@ void App::update() {
     updSlowMs_ = 0;
     updSlow_ = "";
 #endif
-    if (coverWaiting_) { coverWaiting_ = false; applyCover(coverWait_); coverWait_ = TrackLoader::Result{}; UPD_MARK("applyCover"); }
-    else if (TrackLoader::Result r; loader.take(r)) { applyLoaded(r); UPD_MARK("applyLoaded"); }
+    if (coverWait_) {
+        TrackLoader::Result result = std::move(*coverWait_);
+        coverWait_.reset();
+        applyCover(std::move(result));
+        UPD_MARK("applyCover");
+    } else if (TrackLoader::Result result; loader.take(result)) {
+        applyLoaded(std::move(result));
+        UPD_MARK("applyLoaded");
+    }
     bgUpdate();
     updateTick();   // Settings → Updates: what the updater's worker finished
     UPD_MARK("bg+updates");
@@ -1252,7 +1260,6 @@ void App::keepMixOld() {
     mixOld.on = true;
     mixOld.info = now.info;
     mixOld.lyrics = now.lyrics;
-    mixOld.synced = now.synced;
     mixOld.lyricsSource = now.lyricsSource;
     mixOld.upNext = upNext(15);
     mixOld.wave = wave.ready() && wave.path() == lib.tracks[now.track].path ? wave.peaks() : std::vector<float>{};
@@ -1919,8 +1926,7 @@ void App::loadTrack(int trackIdx, bool paused, bool start, double fade, const au
         now.info.date = t.date;
         now.info.trackNo = t.trackNo;
         now.info.duration = t.duration;
-        now.lyrics.clear();
-        now.synced = false;
+        now.lyrics = {};
     }
     now.loading = true;
     statHeard = 0;   // a new play of it, also when Repeat track plays it again
@@ -2404,39 +2410,37 @@ void App::loadTrackCoverAgain() {
 }
 
 /** What the loader read for the track playing: its tags and lyrics, and the cover, uploaded here (textures belong to this thread). */
-void App::applyLoaded(TrackLoader::Result& r) {
-    if (r.gen != loadGen || now.track < 0) { r.release(); return; }   // a track that is no longer the one playing
+void App::applyLoaded(TrackLoader::Result r) {
+    if (r.gen != loadGen || now.track < 0) return;   // a track that is no longer the one playing
     now.loading = false;
     const Track& t = lib.tracks[now.track];
-    if (r.readInfo) {
-        TrackInfo& in = r.info;
-        if (in.title.empty()) in.title = t.title;
-        if (in.artist.empty()) in.artist = t.artist;
-        if (in.album.empty()) in.album = t.album;
-        if (in.duration <= 0) in.duration = t.duration;
-        if (!t.subsonicId.empty() || store.edits.count(t.path)) {
-            // Your edits win over the file's tags here too (the library copy already has them).
-            in.title = t.title; in.artist = t.artist; in.album = t.album;
-            in.albumArtist = t.albumArtist; in.genre = t.genre; in.date = t.date; in.trackNo = t.trackNo;
-        }
-        now.info = std::move(in);
-        now.lyricsSource = r.sidecar ? ".lrc file" : "Tags";
-        now.lyricsFromFile = r.sidecar;
-        parseLyrics(r.lyrics);
-        // The new texts render this frame; the cover is uploaded the next one (update), not both at once.
-        coverWait_ = std::move(r);
-        coverWaiting_ = true;
+    if (!r.readInfo) {
+        applyCover(std::move(r));
         return;
     }
-    applyCover(r);
+    TrackInfo& in = r.info;
+    if (in.title.empty()) in.title = t.title;
+    if (in.artist.empty()) in.artist = t.artist;
+    if (in.album.empty()) in.album = t.album;
+    if (in.duration <= 0) in.duration = t.duration;
+    if (!t.subsonicId.empty() || store.edits.count(t.path)) {
+        // Your edits win over the file's tags here too (the library copy already has them).
+        in.title = t.title; in.artist = t.artist; in.album = t.album;
+        in.albumArtist = t.albumArtist; in.genre = t.genre; in.date = t.date; in.trackNo = t.trackNo;
+    }
+    now.info = std::move(in);
+    now.lyricsSource = r.sidecar ? ".lrc file" : "Tags";
+    now.lyricsFromFile = r.sidecar;
+    now.lyrics = Lyrics::parse(r.lyrics);
+    // The new texts render this frame; the cover is uploaded the next one (update), not both at once.
+    coverWait_ = std::move(r);
 }
 
 void App::forgetNowPlaying() {
     loadGen++;   // what the loader still reads for the old track is dropped
     now.track = -1;
     now.info = TrackInfo{};
-    now.lyrics.clear();
-    now.synced = false;
+    now.lyrics = {};
     now.loading = false;
     // The cover fades out, as it fades between tracks
     if (now.prevCover) SDL_DestroyTexture(now.prevCover);
@@ -2451,8 +2455,8 @@ void App::forgetNowPlaying() {
 }
 
 /** The loaded cover: uploaded, crossfaded in, and the palette from it. */
-void App::applyCover(TrackLoader::Result& r) {
-    if (r.gen != loadGen || now.track < 0) { r.release(); return; }
+void App::applyCover(TrackLoader::Result r) {
+    if (r.gen != loadGen || now.track < 0) return;
     if (mixOld.on) mixOld.coverIn = true;   // (a join's outgoing cover is now.prevCover from here: mixCover)
     // Keep the outgoing cover for the 500 ms crossfade.
     if (now.prevCover) SDL_DestroyTexture(now.prevCover);
@@ -2467,69 +2471,26 @@ void App::applyCover(TrackLoader::Result& r) {
     coverPal = store.brightness ? paletteFixed(FixedTheme::Light) : paletteDefault();
     if (firstCover_) { firstCover_ = false; launchAt("cover"); }
     if (r.cover) {
-        now.cover = SDL_CreateTextureFromSurface(renderer_, r.cover);
+        now.cover = SDL_CreateTextureFromSurface(renderer_, r.cover.get());
         if (now.cover) SDL_SetTextureScaleMode(now.cover, SDL_ScaleModeLinear);
         // The overlay's copy, made again for the track shown: a cover set in the track menu changes it.
         if (player.remote()) thumbFor(now.track, true);
     }
     if (r.blur) {
-        now.blur = SDL_CreateTextureFromSurface(renderer_, r.blur);
+        now.blur = SDL_CreateTextureFromSurface(renderer_, r.blur.get());
         if (now.blur) SDL_SetTextureScaleMode(now.blur, SDL_ScaleModeLinear);
     }
     if (r.frost) {
-        now.frost = SDL_CreateTextureFromSurface(renderer_, r.frost);
+        now.frost = SDL_CreateTextureFromSurface(renderer_, r.frost.get());
         if (now.frost) SDL_SetTextureScaleMode(now.frost, SDL_ScaleModeLinear);
     }
     if (!r.px.empty()) {
         coverPal = r.pal;
         coverPx = std::move(r.px);
     }
-    r.release();
     applyTheme();
 }
 
-/** [mm:ss.xx] LRC lines become timed lines; anything else is plain text. */
-void App::parseLyrics(const std::string& text) {
-    now.lyrics.clear();
-    now.synced = false;
-    now.lrcOffset = 0;
-    size_t start = 0;
-    while (start <= text.size()) {
-        size_t end = text.find('\n', start);
-        if (end == std::string::npos) end = text.size();
-        std::string line = text.substr(start, end - start);
-        start = end + 1;
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        std::vector<double> stamps;
-        size_t p = 0;
-        while (p < line.size() && line[p] == '[') {
-            const size_t close = line.find(']', p);
-            if (close == std::string::npos) break;
-            int mm = 0;
-            double ss = 0;
-            if (sscanf(line.c_str() + p + 1, "%d:%lf", &mm, &ss) == 2) stamps.push_back(mm * 60 + ss);
-            else if (!stamps.empty()) break;
-            else if (!line.compare(p + 1, 7, "offset:")) now.lrcOffset = atof(line.c_str() + p + 8) / 1000;   // ms; + is sooner
-            p = close + 1;
-        }
-        std::string body = line.substr(p);
-        while (!body.empty() && body.front() == ' ') body.erase(0, 1);
-        if (!stamps.empty()) {
-            now.synced = true;
-            for (double t : stamps) now.lyrics.push_back({ t, body });
-        } else if (p == 0) {
-            now.lyrics.push_back({ -1, body });
-        }
-        if (end == text.size()) break;
-    }
-    if (now.synced) {
-        std::erase_if(now.lyrics, [](const LyricLine& l) { return l.t < 0; });
-        // [offset:] as LRC defines it: a positive offset shows every line that much sooner
-        if (now.lrcOffset != 0) for (LyricLine& l : now.lyrics) l.t = std::max(0.0, l.t - now.lrcOffset);
-        std::stable_sort(now.lyrics.begin(), now.lyrics.end(), [](const LyricLine& a, const LyricLine& b) { return a.t < b.t; });
-    }
-    while (!now.lyrics.empty() && now.lyrics.back().text.empty() && !now.synced) now.lyrics.pop_back();
-}
 
 float App::lyricNudge() const {
     if (now.track < 0) return 0;
@@ -2547,7 +2508,7 @@ void App::nudgeLyrics(float by) {
 }
 
 void App::seekLyric(int line) {
-    if (line >= 0 && line < int(now.lyrics.size()) && now.lyrics[line].t >= 0) player.seek(std::max(0.0, now.lyrics[line].t + lyricNudge()));
+    if (line >= 0 && line < int(now.lyrics.lines.size()) && now.lyrics.lines[line].t >= 0) player.seek(std::max(0.0, now.lyrics.lines[line].t + lyricNudge()));
 }
 
 // ============================================================ navigation
@@ -2632,13 +2593,13 @@ int App::canvasLayoutShown() const {
     // A track's lyrics are still on their way: keep the layout, rather than going Minimal for a moment and back.
     if (now.loading && now.track >= 0) return cvTo;
     // Nothing to read: Minimal. So is the lyrics-first layout with lyrics switched off.
-    if (now.lyrics.empty() && store.canvasAutoMinimal) return 2;
+    if (now.lyrics.lines.empty() && store.canvasAutoMinimal) return 2;
     if (store.canvasLayout == 1 && !store.canvasLyrics) return 2;
     return store.canvasLayout;
 }
 
 unsigned App::canvasLayoutsOff() const {
-    if (now.lyrics.empty() && store.canvasAutoMinimal && now.track >= 0) return 0b011;   // Cover and Lyrics: Minimal until lyrics come back
+    if (now.lyrics.lines.empty() && store.canvasAutoMinimal && now.track >= 0) return 0b011;   // Cover and Lyrics: Minimal until lyrics come back
     if (!store.canvasLyrics) return 0b010;                                                // Lyrics with lyrics switched off
     return 0;
 }

@@ -412,14 +412,14 @@ void App::drawLyrics(float x, float y, float w, float h) {
             const float f0 = g.fade();
             g.setFade(f0 * (1 - e));
             if (mixOld.on && mixWipe() < 0.5f)
-                drawLyricsOf(x, y, w, h, mixOld.lyrics, mixOld.synced, mixOld.lyricsSource, mixOld.lyricsAt + (time - mixOld.at), area("np.panel.old"), false);
-            else drawLyricsOf(x, y, w, h, now.lyrics, now.synced, now.lyricsSource, lyricsPos(), area("np.panel"), true);
+                drawLyricsOf(x, y, w, h, mixOld.lyrics.lines, mixOld.lyrics.synced, mixOld.lyricsSource, mixOld.lyricsAt + (time - mixOld.at), area("np.panel.old"), false);
+            else drawLyricsOf(x, y, w, h, now.lyrics.lines, now.lyrics.synced, now.lyricsSource, lyricsPos(), area("np.panel"), true);
             g.setFade(f0);
             if (hintInLyrics(false)) lyricsHint(x, y, w, h, 1.6f);   // (no lyrics: still their place, as drawNowCover's inLyrics)
             return;
         }
     }
-    drawLyricsOf(x, y, w, h, now.lyrics, now.synced, now.lyricsSource, lyricsPos(), area("np.panel"), true);
+    drawLyricsOf(x, y, w, h, now.lyrics.lines, now.lyrics.synced, now.lyricsSource, lyricsPos(), area("np.panel"), true);
 }
 
 /**

@@ -121,9 +121,9 @@ void App::drawCanvasLyrics(float x, float y, float w, float h, int size, int lay
         const float e = automixCoverEase();
         if (e > 0.002f) {
             if (mixOld.on && mixWipe() < 0.5f)
-                drawCanvasLyricsOf(x, y, w, h, size, layout, alpha * (1 - e), mixOld.lyrics, mixOld.synced, mixOld.lyricsAt + (time - mixOld.at),
+                drawCanvasLyricsOf(x, y, w, h, size, layout, alpha * (1 - e), mixOld.lyrics.lines, mixOld.lyrics.synced, mixOld.lyricsAt + (time - mixOld.at),
                                    area("cv.lyrics.old", layout), false);
-            else drawCanvasLyricsOf(x, y, w, h, size, layout, alpha * (1 - e), now.lyrics, now.synced, lyricsPos(), area("cv.lyrics", layout), true);
+            else drawCanvasLyricsOf(x, y, w, h, size, layout, alpha * (1 - e), now.lyrics.lines, now.lyrics.synced, lyricsPos(), area("cv.lyrics", layout), true);
             if (hintInLyrics(true) && !g.ghost()) {
                 const float f0 = g.fade();
                 g.setFade(f0 * alpha);
@@ -133,7 +133,7 @@ void App::drawCanvasLyrics(float x, float y, float w, float h, int size, int lay
             return;
         }
     }
-    drawCanvasLyricsOf(x, y, w, h, size, layout, alpha, now.lyrics, now.synced, lyricsPos(), area("cv.lyrics", layout), true);
+    drawCanvasLyricsOf(x, y, w, h, size, layout, alpha, now.lyrics.lines, now.lyrics.synced, lyricsPos(), area("cv.lyrics", layout), true);
 }
 
 void App::drawCanvas() {
@@ -180,7 +180,7 @@ void App::drawCanvas() {
         textA[i] *= fc.ui;   // and out while the stage is up (Automix)
     }
     // (in a Simple join, while either song has lyrics: the outgoing song's give way to the next one's)
-    const bool lyricsOn = store.canvasLyrics && (!now.lyrics.empty() || (simple && mixOld.on && !mixOld.lyrics.empty()));
+    const bool lyricsOn = store.canvasLyrics && (!now.lyrics.lines.empty() || (simple && mixOld.on && !mixOld.lyrics.lines.empty()));
     // Simple: the whole Canvas but its controls (the progress line, the buttons) changes from the outgoing song to the next
     // from left to right, the background and the cover with it (the user, 2026-10-29): each section across its own width,
     // all on the join's clock (App::pageWipe_)
@@ -593,7 +593,7 @@ void App::drawCanvas() {
         x += syncW + 8;
     }
     // The lyrics switch, greyed while the track has none (nothing it could show or hide)
-    const bool noLyrics = now.track >= 0 && !now.loading && now.lyrics.empty();
+    const bool noLyrics = now.track >= 0 && !now.loading && now.lyrics.lines.empty();
     if (cvBtn(uid("cv.lyrics"), ICON_QUOTE, x + 21, cy, 42, false, store.canvasLyrics, noLyrics)) { store.canvasLyrics = !store.canvasLyrics; store.save(); }
     x += 42 + 8;
     // The equalizer, as the player bar's: lit while on; a press turns it on or off, a long press opens its settings

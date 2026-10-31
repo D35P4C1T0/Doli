@@ -4,8 +4,6 @@
 #include "loader.hpp"
 #include "coverio.hpp"
 
-#include <SDL2/SDL_image.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -16,23 +14,16 @@
 #include "gfx.hpp"
 #include "library.hpp"
 
-void TrackLoader::Result::release() {
-    if (cover) SDL_FreeSurface(cover);
-    if (blur) SDL_FreeSurface(blur);
-    if (frost) SDL_FreeSurface(frost);
-    cover = blur = frost = nullptr;
-}
-
 namespace {
 /**
  * The cover frosted (Automix's join, Now playing): the 64×64 sample blurred by three passes of a box blur 9 texels wide each
  * way (close to a Gaussian of σ ≈ 4.5 texels), edges held. Stretched over the cover with linear filtering it is smooth;
  * the backdrop's 12×12 showed its grid there (the user, 2026-10-28: "frosted should be more like blur").
  */
-SDL_Surface* frostOf(const SDL_Surface* thumb) {
+TrackLoader::Surface frostOf(const SDL_Surface* thumb) {
     constexpr int N = 64, R = 4;
-    SDL_Surface* out = SDL_CreateRGBSurfaceWithFormat(0, N, N, 32, SDL_PIXELFORMAT_RGBA32);
-    if (!out) return nullptr;
+    TrackLoader::Surface out{ SDL_CreateRGBSurfaceWithFormat(0, N, N, 32, SDL_PIXELFORMAT_RGBA32), SDL_FreeSurface };
+    if (!out) return out;
     std::vector<float> a(N * N * 3), b(N * N * 3);
     for (int y = 0; y < N; y++)
         for (int x = 0; x < N; x++)
@@ -74,7 +65,7 @@ void TrackLoader::stop() {
     }
     cv_.notify_all();
     if (thread_.joinable()) thread_.join();
-    if (hasDone_) done_.release();
+    done_ = Result{};
     hasDone_ = hasReq_ = false;
 }
 
@@ -110,7 +101,6 @@ void TrackLoader::run() {
         Result res;
         work(r, res);
         std::lock_guard<std::mutex> g(m_);
-        if (hasDone_) done_.release();   // not taken yet, and already old
         done_ = std::move(res);
         hasDone_ = true;
     }
@@ -144,25 +134,21 @@ void TrackLoader::work(const Request& r, Result& out) {
     if (bytes.empty()) bytes = findFolderCover(r.folder);
     if (bytes.empty()) return;
 
-    SDL_Surface* rgba = nullptr;
-    if (SDL_Surface* src = loadImage(bytes, r.path.c_str())) {
-        rgba = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_RGBA32, 0);
-        SDL_FreeSurface(src);
+    Surface rgba{ nullptr, SDL_FreeSurface };
+    if (Surface src{ loadImage(bytes, r.path.c_str()), SDL_FreeSurface }) {
+        rgba.reset(SDL_ConvertSurfaceFormat(src.get(), SDL_PIXELFORMAT_RGBA32, 0));
     }
     if (!rgba) return;
     // The cover is drawn at most ~450 px (the Canvas); 512 keeps it sharp without aliasing while it floats and zooms.
-    out.cover = Gfx::shrink(rgba, 512);
+    out.cover.reset(Gfx::shrink(rgba.get(), 512));
     // 64×64 for the palette (as Gatefold samples it), 12×12 stretched with linear filtering for the backdrop blur.
-    SDL_Surface* thumb = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32, SDL_PIXELFORMAT_RGBA32);
-    SDL_Surface* tiny = SDL_CreateRGBSurfaceWithFormat(0, 12, 12, 32, SDL_PIXELFORMAT_RGBA32);
-    if (thumb && tiny && SDL_SoftStretchLinear(rgba, nullptr, thumb, nullptr) == 0) {
+    Surface thumb{ SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32, SDL_PIXELFORMAT_RGBA32), SDL_FreeSurface };
+    Surface tiny{ SDL_CreateRGBSurfaceWithFormat(0, 12, 12, 32, SDL_PIXELFORMAT_RGBA32), SDL_FreeSurface };
+    if (thumb && tiny && SDL_SoftStretchLinear(rgba.get(), nullptr, thumb.get(), nullptr) == 0) {
         out.px.resize(64 * 64 * 4);
         for (int y = 0; y < 64; y++) memcpy(&out.px[y * 256], static_cast<uint8_t*>(thumb->pixels) + y * thumb->pitch, 256);
         out.pal = paletteFromPixels(out.px.data(), 64, 64, r.opts);
-        if (SDL_SoftStretchLinear(thumb, nullptr, tiny, nullptr) == 0) { out.blur = tiny; tiny = nullptr; }
-        out.frost = frostOf(thumb);
+        if (SDL_SoftStretchLinear(thumb.get(), nullptr, tiny.get(), nullptr) == 0) out.blur = std::move(tiny);
+        out.frost = frostOf(thumb.get());
     }
-    if (thumb) SDL_FreeSurface(thumb);
-    if (tiny) SDL_FreeSurface(tiny);
-    SDL_FreeSurface(rgba);
 }
