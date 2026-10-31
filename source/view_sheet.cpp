@@ -21,6 +21,7 @@
 #include <strings.h>
 
 #include "app.hpp"
+#include "coverio.hpp"
 #include "icons.inc"
 
 namespace {
@@ -86,13 +87,18 @@ void App::applyEdits(Track& t) {
     }
 }
 
-bool App::keyboard(const char* header, const std::string& initial, std::string& out) {
+bool App::keyboard(const char* header, const std::string& initial, std::string& out, bool secret) {
     SwkbdConfig kbd;
     if (R_FAILED(swkbdCreate(&kbd, 0))) {
         toast("The keyboard is not available in applet mode");
         return false;
     }
     swkbdConfigMakePresetDefault(&kbd);
+#ifdef __SWITCH__
+    if (secret) swkbdConfigSetPasswordFlag(&kbd, 1);
+#else
+    (void)secret;
+#endif
     swkbdConfigSetHeaderText(&kbd, header);
     swkbdConfigSetGuideText(&kbd, header);
     swkbdConfigSetInitialText(&kbd, initial.c_str());
@@ -138,6 +144,7 @@ void App::undoTagEdits(int track) {
 void App::listCoverDir(const std::string& dir) {
     sheet.dir = dir;
     sheet.entries.clear();
+    sheet.memo.clear();
     for (const auto& d : listDirs(dir)) sheet.entries.push_back(d + "/");
     std::vector<std::string> images;
     if (DIR* d = opendir(dir.c_str())) {
@@ -224,7 +231,34 @@ void App::closeSheet() {
 }
 
 void App::sheetBack() {
-    if (sheet.page == Sheet::Menu || sheet.page == Sheet::NewList || sheet.page == Sheet::Sleep) { closeSheet(); return; }
+    if (sheet.page == Sheet::Colour) {   // B puts down a square or bar first (Ui); then it is Cancel
+        closeColourPicker(false);
+        return;
+    }
+    if (sheet.page == Sheet::Job && sheet.fromList) {   // back to the list, on the job it came from
+        int row = 0;
+        for (int i = 0; i < sheet.recipe && i < JobSlots; i++) row += jobCards[i].shown > 0.01f;
+        openJobList();
+        sheet.queuePos = row;   // drawSmartSheet focuses it
+        return;
+    }
+    if (sheet.page == Sheet::Menu || sheet.page == Sheet::NewList || sheet.page == Sheet::Sleep || sheet.page == Sheet::Job || sheet.page == Sheet::Jobs ||
+        sheet.page == Sheet::PlFile || sheet.page == Sheet::Confirm || sheet.page == Sheet::EqPreset ||
+        sheet.page == Sheet::ActList || sheet.page == Sheet::ListActions || sheet.page == Sheet::PlMenu || sheet.page == Sheet::FileMenu ||
+        sheet.page == Sheet::Factory || sheet.page == Sheet::Report || sheet.page == Sheet::Crashes) {
+        closeSheet();
+        return;
+    }
+    if (sheet.page == Sheet::FileInfo || sheet.page == Sheet::FileLink) {   // Files: back to the file's menu
+        sheet.page = Sheet::FileMenu;
+        ui.focusDefault();
+        return;
+    }
+    if (sheet.page == Sheet::PlIcon && !sheet.fromList) {   // the icons → the playlist's menu (opened from the page's icon button: closes)
+        sheet.page = Sheet::PlMenu;
+        ui.focusDefault();
+        return;
+    }
     if (sheet.page == Sheet::Smart || sheet.page == Sheet::SmartForm) {   // the recipe → the recipes → the choice
         sheet.page = sheet.page == Sheet::SmartForm ? Sheet::Smart : Sheet::NewList;
         ui.focusDefault();
@@ -266,7 +300,7 @@ void App::drawSheet() {
         if (q.order.size() > 1 && (!sheet.upNext || qp > q.pos))
             items.push_back({ ICON_SORT_DOWN, "Move", "", [this, qp, upNext = sheet.upNext] {
                                   closeSheet();
-                                  grab = Grab{ qp, upNext, 1 };
+                                  grab = Grab{ Grab::Queue, qp, upNext, 1 };
                                   ui.focus(upNext ? uid("np.next", qp - q.pos - 1) : uid("pl.r", qp));
                                   ui.setPadMode(true);
                                   toast("Move it with the D-pad, then press A");
@@ -294,6 +328,28 @@ void App::drawSheet() {
         // On one of your own playlists, the track can leave it.
         if (route.view == View::List && route.ref >= 0 && route.ref < int(store.playlists.size()) && store.playlists[route.ref].own()) {
             auto& pl = store.playlists[route.ref];
+            // Move: picked up as the queue's rows are (an Automix playlist then keeps this order until Order again)
+            {
+                const std::vector<int> rows = playlistTracks(route.ref);
+                const int row = int(std::find(rows.begin(), rows.end(), t) - rows.begin());
+                if (row < int(rows.size()) && rows.size() > 1)
+                    items.push_back({ ICON_SORT_DOWN, "Move", pl.automix ? "Your order stays" : "", [this, row, ref = route.ref] {
+                                          closeSheet();
+                                          grab = Grab{ Grab::List, row, false, 1, ref };
+                                          ui.focus(uid("pl.r", row));
+                                          ui.setPadMode(true);
+                                          toast("Move it with the D-pad, then press A");
+                                      } });
+            }
+            if (pl.automix) {   // an Automix playlist: this track first (pinned), or Gatefold's choice again
+                const bool pinned = pl.pin == tr.path;
+                items.push_back({ ICON_LINK, pinned ? "Let Songate choose the first track" : "Play this first", "", [this, ref = route.ref, pinned, path = tr.path] {
+                                      store.playlists[ref].pin = pinned ? "" : path;
+                                      orderAutomixList(ref, false);
+                                      toast(pinned ? "Songate chooses the first track again" : "Plays first; the rest ordered after it");
+                                      closeSheet();
+                                  } });
+            }
             if (std::find(pl.tracks.begin(), pl.tracks.end(), tr.path) != pl.tracks.end())
                 items.push_back({ ICON_X, "Remove from “" + pl.name + "”", "", [this, ref = route.ref, path = tr.path] {
                                       auto& tl = store.playlists[ref].tracks;
@@ -308,48 +364,59 @@ void App::drawSheet() {
                               store.save();
                               toast(liked ? "Removed from Liked" : "Added to Liked");
                           } });
-        items.push_back({ ICON_TAG, "Edit tags…", store.edits.count(tr.path) ? "Edited" : "", [this, t] {
-                              sheet.draft.clear();
-                              for (const auto& [k, l] : kFields) sheet.draft[k] = fieldOf(lib.tracks[t], k);
-                              sheet.page = Sheet::Tags;
-                              ui.focusDefault();
-                          } });
-        items.push_back({ ICON_IMAGE, "Change the cover…", store.covers.count(tr.path) ? "Yours" : "", [this, t] {
-                              sheet.page = Sheet::Cover;
-                              sheet.wholeAlbum = lib.tracks[t].albumIdx >= 0;
-                              listCoverDir(lib.tracks[t].folder);
-                          } });
-        if (store.covers.count(tr.path))
-            items.push_back({ ICON_REFRESH, "Use the original cover", "", [this, t] {
-                                  // for every track of the album that shares this cover
-                                  const std::string mine = store.covers[lib.tracks[t].path];
-                                  std::vector<int> group{ t };
-                                  if (lib.tracks[t].albumIdx >= 0) group = lib.albums[lib.tracks[t].albumIdx].tracks;
-                                  for (int i : group)
-                                      if (auto it = store.covers.find(lib.tracks[i].path); it != store.covers.end() && it->second == mine) {
-                                          store.covers.erase(it);
-                                          meta.setCoverFile(i, "");
-                                      }
-                                  store.saveEdits();
-                                  if (now.track >= 0 && std::find(group.begin(), group.end(), now.track) != group.end()) loadTrackCoverAgain();
-                                  toast("Original cover back");
+        if (tr.subsonicId.empty()) {
+            items.push_back({ ICON_TAG, "Edit tags…", store.edits.count(tr.path) ? "Edited" : "", [this, t] {
+                                  sheet.draft.clear();
+                                  for (const auto& [k, l] : kFields) sheet.draft[k] = fieldOf(lib.tracks[t], k);
+                                  sheet.page = Sheet::Tags;
+                                  ui.focusDefault();
                               } });
-        if (store.edits.count(tr.path)) items.push_back({ ICON_REFRESH, "Undo my tag edits", "", [this, t] { undoTagEdits(t); } });
+            items.push_back({ ICON_IMAGE, "Change the cover…", store.covers.count(tr.path) ? "Yours" : "", [this, t] {
+                                  sheet.page = Sheet::Cover;
+                                  sheet.wholeAlbum = lib.tracks[t].albumIdx >= 0;
+                                  // Settings → Storage and reset may name a folder of covers; else the track's own
+                                  struct stat st;
+                                  const bool own = !store.coverDir.empty() && stat(store.coverDir.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+                                  listCoverDir(own ? store.coverDir : lib.tracks[t].folder);
+                              } });
+            if (store.covers.count(tr.path))
+                items.push_back({ ICON_REFRESH, "Use the original cover", "", [this, t] {
+                                      // for every track of the album that shares this cover
+                                      const std::string mine = store.covers[lib.tracks[t].path];
+                                      std::vector<int> group{ t };
+                                      if (lib.tracks[t].albumIdx >= 0) group = lib.albums[lib.tracks[t].albumIdx].tracks;
+                                      for (int i : group)
+                                          if (auto it = store.covers.find(lib.tracks[i].path); it != store.covers.end() && it->second == mine) {
+                                              store.covers.erase(it);
+                                              meta.setCoverFile(i, "");
+                                          }
+                                      store.saveEdits();
+                                      if (now.track >= 0 && std::find(group.begin(), group.end(), now.track) != group.end()) loadTrackCoverAgain();
+                                      toast("Original cover back");
+                                  } });
+            if (store.edits.count(tr.path)) items.push_back({ ICON_REFRESH, "Undo my tag edits", "", [this, t] { undoTagEdits(t); } });
+        }
         if (tr.albumIdx >= 0)
-            items.push_back({ ICON_GRID, "Go to the album", lib.albums[tr.albumIdx].title, [this, a = tr.albumIdx] { closeSheet(); openAlbum(a); } });
+            items.push_back({ ICON_GRID, "Go to the album", lib.albums[tr.albumIdx].title, [this, a = tr.albumIdx] { closeSheet(); goToAlbum(a); } });
         items.push_back({ ICON_MIC, "Go to the artist", tr.artist, [this, a = tr.artist] { closeSheet(); openArtist(a); } });
         if (!tr.genre.empty()) {
             const std::string g1 = tr.genre.substr(0, tr.genre.find(';'));
             items.push_back({ ICON_TAG, "Go to the genre", g1, [this, g1] { closeSheet(); openGenre(g1); } });
         }
-        items.push_back({ ICON_FOLDER, "Show in Folders", "", [this, f = tr.folder] { closeSheet(); navigate(View::Folders, lib.folderByPath(f)); } });
+        if (tr.subsonicId.empty()) items.push_back({ ICON_FOLDER, "Show in Folders", "", [this, f = tr.folder] { closeSheet(); if (tabFor(Store::TabFolders, "folder")) navigate(View::Folders, lib.folderByPath(f)); } });
         items.push_back({ ICON_INFO, "Details", "", [this, t] {
                               sheet.info = TrackInfo{};
-                              readTrackInfo(lib.tracks[t].path, sheet.info, true, true);
+                              const Track& track = lib.tracks[t];
+                              if (track.subsonicId.empty()) readTrackInfo(track.path, sheet.info, true, true);
+                              else {
+                                  sheet.info.title = track.title; sheet.info.artist = track.artist; sheet.info.album = track.album;
+                                  sheet.info.duration = track.duration; sheet.info.genre = track.genre; sheet.info.date = track.date;
+                                  sheet.info.albumArtist = track.albumArtist; sheet.info.trackNo = track.trackNo;
+                              }
                               sheet.page = Sheet::Info;
                               ui.focusDefault();
                           } });
-        items.push_back({ ICON_X, "Delete from the SD card…", "", [this] { sheet.page = Sheet::Delete; ui.focusDefault(); }, true });
+        if (tr.subsonicId.empty()) items.push_back({ ICON_X, "Delete from the SD card…", "", [this] { sheet.page = Sheet::Delete; ui.focusDefault(); }, true });
     } else if (page == Sheet::Lists) {
         // Your own playlists (folder playlists follow their folder, so tracks cannot be added to them).
         items.push_back({ ICON_PLUS, "New playlist…", "", [this, t] { closeSheet(); newPlaylist(t); } });
@@ -376,9 +443,13 @@ void App::drawSheet() {
                 const std::string name = e.substr(0, e.size() - 1);
                 items.push_back({ ICON_FOLDER, name, "", [this, name] { listCoverDir(joinPath(sheet.dir, name)); } });
             } else {
-                struct stat st {};
                 const std::string full = joinPath(sheet.dir, e);
-                const std::string size = stat(full.c_str(), &st) == 0 ? sizeText(double(st.st_size)) : "";
+                auto m = sheet.memo.find(full);
+                if (m == sheet.memo.end()) {
+                    struct stat st {};
+                    m = sheet.memo.emplace(full, stat(full.c_str(), &st) == 0 ? sizeText(double(st.st_size)) : "").first;
+                }
+                const std::string size = m->second;
                 items.push_back({ ICON_IMAGE, e, size, [this, full] { setTrackCover(full); sheet.page = Sheet::Menu; ui.focusDefault(); } });
             }
         }
@@ -401,11 +472,20 @@ void App::drawSheet() {
         if (in.bitrateKbps) fmt += " · " + std::to_string(in.bitrateKbps) + " kbps";
         info("Format", fmt);
         info("Length", fmtTime(tr.duration > 0 ? tr.duration : in.duration));
-        struct stat st {};
-        if (stat(tr.path.c_str(), &st) == 0) info("Size", sizeText(double(st.st_size)));
-        info("Cover", store.covers.count(tr.path) ? "Yours, kept by Gatefold" : !in.cover.empty() ? "In the file" : "From the folder, or none");
-        info("Lyrics", !readSidecarLyrics(tr.path).empty() ? ".lrc file" : !in.lyrics.empty() ? "In the tags" : "None");
-        info("Your edits", store.edits.count(tr.path) ? "Yes, kept by Gatefold; the file is unchanged" : "");
+        if (!sheet.memo.count("size")) {   // once, not every frame
+            struct stat st {};
+            sheet.memo["size"] = stat(tr.path.c_str(), &st) == 0 ? sizeText(double(st.st_size)) : "";
+            sheet.memo["lrc"] = readSidecarLyrics(tr.path).empty() ? "" : "1";
+        }
+        info("Size", sheet.memo["size"]);
+        info("Cover", store.covers.count(tr.path) ? "Yours, kept by Songate" : !in.cover.empty() ? "In the file" : "From the folder, or none");
+        info("Lyrics", !sheet.memo["lrc"].empty() ? ".lrc file" : !in.lyrics.empty() ? "In the tags" : "None");
+        if (const auto it = store.lyricNudge.find(tr.path); it != store.lyricNudge.end()) {   // the timing control (Now playing, the Canvas)
+            char b[48];
+            snprintf(b, sizeof b, "%.1f s %s, kept by Songate", double(std::fabs(it->second)), it->second > 0 ? "later" : "earlier");
+            info("Lyrics timing", b);
+        }
+        info("Your edits", store.edits.count(tr.path) ? "Yes, kept by Songate; the file is unchanged" : "");
         // Volume levelling (levels.hpp)
         if (const Level* lv = levels.find(tr.path); lv && !std::isnan(lv->lufs)) {
             char b[64];
@@ -418,6 +498,16 @@ void App::drawSheet() {
             info("Loudness", v);
         } else {
             info("Loudness", lv ? "Could not be measured" : "Not measured yet");
+        }
+        // Automix's analysis (mixan.hpp), made with the loudness
+        if (const Level* lv = levels.find(tr.path); lv && lv->mix.seconds != 0) {
+            char b[64];
+            if (lv->mix.bpm > 0 && lv->mix.confidence >= 0.5f) snprintf(b, sizeof b, "%.0f", double(lv->mix.bpm));
+            else if (lv->mix.bpm > 0) snprintf(b, sizeof b, "About %.0f (no steady beat for Automix)", double(lv->mix.bpm));
+            else snprintf(b, sizeof b, "No steady beat");
+            info("BPM", b);
+            if (lv->mix.key >= 0)   // the key, and its place on the Camelot wheel (Automix v2)
+                info("Key", (lv->mix.keySure >= 0.5f ? "" : "Perhaps ") + mixan::keyName(lv->mix.key) + " (" + mixan::camelot(lv->mix.key) + ")");
         }
         // Play statistics (stats.hpp)
         auto when = [](int64_t t) {
@@ -436,7 +526,7 @@ void App::drawSheet() {
     // ---- card
     float bodyH = 8;
     for (const auto& it : items) bodyH += it.h;
-    if (page == Sheet::Cover && tr.albumIdx >= 0) bodyH += 52;
+    if (page == Sheet::Cover && tr.albumIdx >= 0) bodyH += 22 + 44;   // the folder line and Use for (below)
     if (page == Sheet::Delete) bodyH = 110;
     if (page == Sheet::Tags) bodyH += 34;
     bodyH = std::min(bodyH + 8, maxBody);
@@ -456,6 +546,7 @@ void App::drawSheet() {
     const int textW = int(w - 64 - 16 - 24 - 24 - 40);
     g.text(tr.title, { css::Lg, Weight::Bold }, hx + 64 + 16, hy + 18, pal.text, 1, Align::Left, textW);
     g.text(trackSub(t), { css::Sm }, hx + 64 + 16, hy + 44, pal.text3, 1, Align::Left, textW);
+    hint(uid("sh.close"), "Close");
     if (iconButton(uid("sh.close"), ICON_X, x + w - 24 - 14, hy + 14)) { closeSheet(); return; }
     g.rect(x + 24, y + headH - 1, w - 48, 1, pal.text, 0.09f);
 
@@ -475,7 +566,7 @@ void App::drawSheet() {
             segmented(uid("sh.scope"), x + w - 24, ry + 14, { "This track", "The whole album" }, sheet.wholeAlbum ? 1 : 0, &pick);
             g.textC("Use for", { css::Base, Weight::SemiBold }, x + 24, ry + 14, pal.text2);
             if (pick >= 0) sheet.wholeAlbum = pick == 1;
-            ry += 30;
+            ry += 44;   // the control is 36 tall round ry + 14: 30 put the first row's focus ring against it
         }
     }
     if (page == Sheet::Delete) {
@@ -498,7 +589,7 @@ void App::drawSheet() {
         const bool hit = it.act && ui.item(id, { x + 12, ry, w - 24, it.h }, 10, i == focusRow ? DefaultFocus : 0);
         const bool hot = ui.pressed(id) || (ui.focused(id) && ui.showFocusRing());
         if (hot && !it.text) g.roundRect(x + 12, ry, w - 24, it.h, 10, pal.text, ui.pressed(id) ? 0.11f : 0.065f);
-        const Rgb fg = it.danger ? Rgb{ 0.93f, 0.45f, 0.42f } : pal.text;
+        const Rgb fg = it.danger ? dangerInk() : pal.text;
         float lx = x + 24;
         if (it.icon) { g.icon(it.icon, lx + 9, ry + it.h / 2, 18, it.danger ? fg : pal.text2); lx += 18 + 14; }
         if (page == Sheet::Info) {
@@ -524,7 +615,7 @@ void App::drawSheet() {
                 if (sheet.preview) SDL_DestroyTexture(sheet.preview);
                 sheet.preview = nullptr;
                 const std::vector<uint8_t> bytes = readAll(full);
-                if (SDL_Surface* s = bytes.empty() ? nullptr : IMG_Load_RW(SDL_RWFromConstMem(bytes.data(), int(bytes.size())), 1)) {
+                if (SDL_Surface* s = loadImage(bytes)) {
                     if (SDL_Surface* small = Gfx::shrink(s, 128)) {
                         sheet.preview = SDL_CreateTextureFromSurface(renderer_, small);
                         if (sheet.preview) SDL_SetTextureScaleMode(sheet.preview, SDL_ScaleModeLinear);
@@ -538,7 +629,7 @@ void App::drawSheet() {
         ry += it.h;
     }
     if (page == Sheet::Tags && sheet.page == page) {
-        g.text("Kept by Gatefold and shown everywhere in the app. The file itself is not changed.", { css::Sm }, x + 24, ry + 10, pal.text3, 1,
+        g.text("Kept by Songate and shown everywhere in the app. The file itself is not changed.", { css::Sm }, x + 24, ry + 10, pal.text3, 1,
                Align::Left, int(w - 48));
         ry += 34;
     }

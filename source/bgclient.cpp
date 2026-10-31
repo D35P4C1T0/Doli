@@ -70,6 +70,13 @@ bool BgClient::poll(double) {
     st_.heapFree = s.heapFree;
     st_.sleepLeft = s.sleepLeft;
     st_.sleepGen = s.sleepGen;
+    st_.eqGen = s.eqGen;
+    st_.joinGen = s.joinGen;
+    st_.joining = int(s.joining);
+    st_.joinAt = s.joinAt;
+    st_.joinLength = s.joinLength;
+    st_.joinBpm = s.joinBpm;
+    st_.joinFlags = s.joinFlags;
     if (now < expectUntil_) {
         if (expectStatus_ >= 0) st_.status = expectStatus_;
         if (expectPos_ >= 0) st_.position = expectPos_;
@@ -97,7 +104,7 @@ bool BgClient::setQueue(const BgQueue& q) {
     h.count = u32(q.paths.size());
     h.pos = q.pos;
     h.mode = u32(q.mode);
-    h.flags = GfbgQueue_KeepCurrent;
+    h.flags = GfbgQueue_KeepCurrent | (q.automix ? GfbgQueue_Automix : 0);
     h.pathBytes = u32(pathBytes);
     memcpy(h.name, q.name.c_str(), std::min(q.name.size(), sizeof h.name - 1));
     memcpy(buf.data(), &h, sizeof h);
@@ -107,7 +114,15 @@ bool BgClient::setQueue(const BgQueue& q) {
     }
     u8* p = buf.data() + sizeof h + q.order.size() * 4;
     for (const auto& s : q.paths) { memcpy(p, s.c_str(), s.size() + 1); p += s.size() + 1; }
-    if (R_FAILED(gfbgSetQueue(&srv, buf.data(), buf.size()))) { disconnect(); return false; }
+    refused_ = false;
+    if (const Result rc = gfbgSetQueue(&srv, buf.data(), buf.size()); R_FAILED(rc)) {
+        if (rc == GFBG_QUEUE_TOO_BIG) refused_ = true;   // it kept its old queue and stays connected
+        else disconnect();
+        return false;
+    }
+    // What the player has now, until the next poll says so itself (Player::loaded reads these).
+    st_.queueCount = h.count;
+    st_.pos = q.pos;
     return true;
 }
 
@@ -141,6 +156,7 @@ bool BgClient::getQueue(BgQueue& q) {
 void BgClient::playAt(int pos, bool paused, double start) {
     if (!connected_) return;
     gfbgPlayAt(&srv, pos, paused, start);
+    st_.pos = pos;
     expectStatus_ = paused ? BgState::Paused : BgState::Playing;
     expectPos_ = start;
     expectUntil_ = polledAt_ + 0.3;
@@ -198,6 +214,33 @@ void BgClient::setSleep(float seconds) {
     if (connected_) gfbgSetSleep(&srv, seconds);
 }
 
+void BgClient::setCrossfade(float seconds, bool notInAlbum) {
+    if (!connected_) return;
+    GfbgConfig c = {};
+    if (R_FAILED(gfbgGetConfig(&srv, &c))) return;
+    const u32 flags = notInAlbum ? GfbgXfade_NotInAlbum : 0;
+    if (c.crossfade == seconds && c.xfadeFlags == flags) return;
+    c.crossfade = seconds;
+    c.xfadeFlags = flags;
+    gfbgSetConfig(&srv, &c);
+}
+
+void BgClient::setAutomixModel(int model, const std::string& file) {
+    if (!connected_) return;
+    GfbgConfig c = {};
+    if (R_FAILED(gfbgGetConfig(&srv, &c))) return;
+    if (c.automixModel == u32(model) && file == c.automixFile) return;
+    c.automixModel = u32(model);
+    snprintf(c.automixFile, sizeof c.automixFile, "%s", file.c_str());
+    gfbgSetConfig(&srv, &c);
+}
+
+bool BgClient::eq(GfbgEq& out) { return connected_ && R_SUCCEEDED(gfbgGetEq(&srv, &out)); }
+
+void BgClient::setEq(const GfbgEq& e) {
+    if (connected_) gfbgSetEq(&srv, &e);
+}
+
 bool BgClient::pcm(float* out, int n) {
     if (!connected_ || n > GFBG_PCM) return false;
     u32 serial = 0;
@@ -216,6 +259,8 @@ bool BgClient::config(BgConfig& out) {
     out.onReturn = c.onReturn;
     out.fadeOut = c.fadeOut;
     out.fadeIn = c.fadeIn;
+    for (int i = 0; i < 4; i++) out.lists[i] = c.lists[i];
+    out.listStart = int(c.listStart);
     return true;
 }
 
@@ -229,6 +274,8 @@ void BgClient::setConfig(const BgConfig& in) {
     c.onReturn = u8(in.onReturn);
     c.fadeOut = in.fadeOut;
     c.fadeIn = in.fadeIn;
+    for (int i = 0; i < 4; i++) c.lists[i] = in.lists[i];
+    c.listStart = u32(in.listStart);
     gfbgSetConfig(&srv, &c);
 }
 
@@ -239,6 +286,7 @@ void BgClient::disconnect() {}
 bool BgClient::poll(double) { return false; }
 double BgClient::position(double) const { return 0; }
 bool BgClient::setQueue(const BgQueue&) { return false; }
+void BgClient::setAutomixModel(int, const std::string&) {}
 bool BgClient::getQueue(BgQueue&) { return false; }
 void BgClient::playAt(int, bool, double) {}
 void BgClient::toggle(double) {}
@@ -249,6 +297,9 @@ void BgClient::setVolume(float) {}
 void BgClient::setStopAfter(bool) {}
 void BgClient::setLevelMode(int) {}
 void BgClient::setSleep(float) {}
+void BgClient::setCrossfade(float, bool) {}
+bool BgClient::eq(GfbgEq&) { return false; }
+void BgClient::setEq(const GfbgEq&) {}
 bool BgClient::pcm(float*, int) { return false; }
 bool BgClient::config(BgConfig&) { return false; }
 void BgClient::setConfig(const BgConfig&) {}

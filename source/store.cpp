@@ -35,7 +35,7 @@ struct Writer {
     std::deque<Job> jobs;
     std::unordered_map<std::string, std::string> written;
     std::unordered_map<std::string, Job> failed;
-    bool busy = false, started = false;
+    bool busy = false, started = false, quit = false;
     std::string activePath;
     std::thread thread;   // kept, never detached: libnx has no pthread_detach (detach() throws and aborts)
 
@@ -56,6 +56,20 @@ struct Writer {
         std::unique_lock<std::mutex> g(m);
         done.wait(g, [&] { return jobs.empty() && !busy; });
     }
+    /** Writes what is queued and ends the thread. A thread left running when Gatefold exits keeps hbloader from
+     *  unloading it: loading the next .nro (an update's Restart now) then aborted with 0xD401. */
+    void stop() {
+        {
+            std::lock_guard<std::mutex> g(m);
+            if (!started) return;
+            quit = true;
+        }
+        wake.notify_all();
+        if (thread.joinable()) thread.join();
+        std::lock_guard<std::mutex> g(m);
+        started = false;
+        quit = false;
+    }
     void run() {
         for (;;) {
             Job j;
@@ -64,14 +78,15 @@ struct Writer {
                 busy = false;
                 activePath.clear();
                 done.notify_all();
-                if (jobs.empty() && !failed.empty()) {
-                    wake.wait_for(g, std::chrono::seconds(2), [&] { return !jobs.empty(); });
-                    if (jobs.empty()) {
+                if (jobs.empty() && !failed.empty() && !quit) {
+                    wake.wait_for(g, std::chrono::seconds(2), [&] { return !jobs.empty() || quit; });
+                    if (jobs.empty() && !quit) {
                         for (auto& [path, retry] : failed) jobs.push_back(std::move(retry));
                         failed.clear();
                     }
                 }
-                wake.wait(g, [&] { return !jobs.empty(); });
+                wake.wait(g, [&] { return !jobs.empty() || quit; });
+                if (jobs.empty()) return;
                 j = std::move(jobs.front());
                 jobs.pop_front();
                 busy = true;
@@ -90,7 +105,7 @@ struct Writer {
     }
 };
 Writer& writer() {
-    static Writer* w = new Writer;   // never destroyed: its thread runs until the process ends
+    static Writer* w = new Writer;   // never destroyed; its thread ends with Store::stopWriter (App::shutdown)
     return *w;
 }
 
@@ -122,6 +137,8 @@ using files::readLines;
 }  // namespace
 
 void Store::load() {
+    bool filesTabKnown = false;   // a settings.txt from before Files: its hiddenTabs knows nothing of bit 6
+    bool linesKnown = false;      // ... and one from before placed lines: Files had a line of its own above it
     for (const auto& l : readLines(path("settings.txt"))) {
         const size_t eq = l.find('=');
         if (eq == std::string::npos) continue;
@@ -130,9 +147,14 @@ void Store::load() {
         else if (k == "order") order = Order(std::clamp(atoi(v.c_str()), 0, 3));
         else if (k == "sidebarCollapsed") sidebarCollapsed = v == "1";
         else if (k == "motion") motion = v == "1";
+        else if (k == "mixAnimNow") mixAnimNow = std::clamp(atoi(v.c_str()), 0, 2);
+        else if (k == "mixAnimCanvas") mixAnimCanvas = std::clamp(atoi(v.c_str()), 0, 1);
+        else if (k == "mixHint") mixHint = std::clamp(atoi(v.c_str()), 0, 2);
         else if (k == "spectrum") showSpectrum = v == "1";
         else if (k == "canvasLayout") canvasLayout = std::clamp(atoi(v.c_str()), 0, 2);
         else if (k == "canvasLyrics") canvasLyrics = v == "1";
+        else if (k == "lyricTiming") lyricTiming = v == "1";
+        else if (k == "lyricTimingFor") lyricTimingFor = std::clamp(atoi(v.c_str()), 0, 2);
         else if (k == "resume") resume = v == "1";
         else if (k == "background") background = v == "1";
         else if (k == "viewPlaylist") viewPlaylist = std::clamp(atoi(v.c_str()), 0, 3);
@@ -142,7 +164,7 @@ void Store::load() {
         else if (k == "libTab") libTab = std::clamp(atoi(v.c_str()), 0, 2);
         else if (k == "tracksSort") tracksSort = std::clamp(atoi(v.c_str()), 0, 5);
         else if (k == "tracksDesc") tracksDesc = v == "1";
-        else if (k == "hiddenTabs") hiddenTabs = unsigned(atoi(v.c_str())) & 63u;
+        else if (k == "hiddenTabs") hiddenTabs = unsigned(atoi(v.c_str())) & 127u;
         else if (k == "theme") { theme = std::clamp(atoi(v.c_str()), 0, 4); if (theme == 2) theme = 1; }   // Grey is no longer offered: Dark
         else if (k == "brightness") brightness = std::clamp(atoi(v.c_str()), 0, 1);
         else if (k == "saturation") saturation = std::clamp(float(atof(v.c_str())), 0.f, 1.f);   // was up to 150%, which changed nothing past 100%
@@ -150,6 +172,7 @@ void Store::load() {
         else if (k == "customBg") customBg = atoi(v.c_str());
         else if (k == "customAccent") customAccent = atoi(v.c_str());
         else if (k == "customAccent2") customAccent2 = atoi(v.c_str());
+        else if (k == "customMode") customMode = std::clamp(atoi(v.c_str()), 0, 2);
         else if (k == "canvasAutoMinimal") canvasAutoMinimal = v == "1";
         else if (k == "canvasFloat") canvasFloat = v == "1";
         else if (k == "canvasZoom") canvasZoom = v == "1";
@@ -165,6 +188,9 @@ void Store::load() {
         else if (k == "pointerSpeed") pointerSpeed = std::clamp(float(atof(v.c_str())), 0.f, 1.f);
         else if (k == "pointerAccel") pointerAccel = v == "1";
         else if (k == "frameTimes") frameTimes = v == "1";
+        else if (k == "automixModel") automixModel = v;
+        else if (k == "modelToasted") modelToasted = v;
+        else if (k == "heldOrder") heldOrder = std::clamp(atoi(v.c_str()), -1, 3);
         else if (k == "keepAwake") keepAwake = v == "1";
         else if (k == "levelMode") levelMode = std::clamp(atoi(v.c_str()), 0, 3);
         else if (k == "levelTarget") levelTarget = std::clamp(atoi(v.c_str()), -23, -6);
@@ -172,13 +198,71 @@ void Store::load() {
         else if (k == "batteryEstimate") batteryEstimate = v == "1";
         else if (k == "dimAfter") dimAfter = std::clamp(atoi(v.c_str()), 0, 60);
         else if (k == "sleepConsole") sleepConsole = std::clamp(atoi(v.c_str()), 0, 300);
+        else if (k == "stopCovers") stopCovers = v == "1";
+        else if (k == "stopThumbs") stopThumbs = v == "1";
+        else if (k == "stopLevels") stopLevels = v == "1";
+        else if (k == "crossfade") crossfade = std::clamp(float(atof(v.c_str())), 0.f, 12.f);
+        else if (k == "xfadeNotInAlbum") xfadeNotInAlbum = v == "1";
+        else if (k == "eqOn") this->eq.on = uint8_t(v == "1");
+        else if (k == "eqAdvanced") this->eq.advanced = uint8_t(v == "1");
+        else if (k == "eqPreset") this->eq.preset = int8_t(std::clamp(atoi(v.c_str()), -1, GFEQ_PRESETS + GFEQ_USER_MAX - 1));
+        else if (k == "eqPreamp") this->eq.preamp = float(atof(v.c_str()));
+        else if (k == "eqBass") this->eq.bass = float(atof(v.c_str()));
+        else if (k == "eqTreble") this->eq.treble = float(atof(v.c_str()));
+        else if (k == "eqEdited") this->eq.edited = uint8_t(v == "1");
+        else if (k == "eqBands") gfEqParseBands(v.c_str(), this->eq.bands);
+        else if (k == "eqCustom") { gfEqParseBands(v.c_str(), this->eq.custom); this->eq.hasCustom = 1; }
         else if (k == "musicRoot") musicRoot = v;
+        else if (k == "showHidden") showHidden = v == "1";
+        else if (k == "viewPlaylists") viewPlaylists = std::clamp(atoi(v.c_str()), 0, 3);
+        else if (k == "tabOrder") {
+            // ids that exist, once each; any missing (a tab newer than the file) go at the end in their own order
+            std::vector<int> o;
+            for (size_t i = 0; i < v.size();) {
+                const int t = atoi(v.c_str() + i);
+                if (((t >= 0 && t < TabCount) || isLine(t)) && std::find(o.begin(), o.end(), t) == o.end()) o.push_back(t);
+                const size_t c = v.find(',', i);
+                if (c == std::string::npos) break;
+                i = c + 1;
+            }
+            for (int t = 0; t < TabCount; t++) if (std::find(o.begin(), o.end(), t) == o.end()) o.push_back(t);
+            tabOrder = o;
+        }
+        else if (k == "filesTab") filesTabKnown = true;
+        else if (k == "tabLines") linesKnown = true;
+        else if (k == "filesDir") filesDir = v;
+        else if (k == "importDir") importDir = v;
+        else if (k == "exportDir") exportDir = v;
+        else if (k == "coverDir") coverDir = v;
+        else if (k == "backupDir") backupDir = v;
+        else if (k == "updates") updates = std::clamp(atoi(v.c_str()), 0, 1);
+        else if (k == "updateAtStart") updateAtStart = v == "1";
+        else if (k == "updateToasted") updateToasted = v;
+        else if (k == "betas") betas = v == "1";
+        else if (k == "reports") reports = v == "1";
+        else if (k == "subsonicEnabled") subsonic.enabled = v == "1";
+        else if (k == "subsonicUrl") subsonic.url = v;
+        else if (k == "subsonicUser") subsonic.user = v;
+        else if (k == "subsonicPassword") subsonic.password = v;
     }
+    if (!filesTabKnown) hiddenTabs |= 64u;   // Files stays hidden until Settings → Appearance shows it
+    if (!linesKnown && std::none_of(tabOrder.begin(), tabOrder.end(), isLine)) {   // the line Files had, now one of yours
+        auto f = std::find(tabOrder.begin(), tabOrder.end(), int(TabFiles));
+        tabOrder.insert(f, TabLine);
+    }
+    gfEqClamp(&eq);
     playlists.clear();
     for (const auto& l : readLines(path("playlists.txt"))) {
         const size_t tab = l.find('\t');
         if (tab == std::string::npos) continue;
         playlists.push_back({ l.substr(0, tab), l.substr(tab + 1), {} });
+    }
+    // Icons chosen: "icon<TAB>name<TAB>path" (a file of their own, so playlists.txt stays as older versions read it)
+    for (const auto& l : readLines(path("playlist-icons.tsv"))) {
+        const size_t a = l.find('\t'), b = a == std::string::npos ? a : l.find('\t', a + 1);
+        if (b == std::string::npos) continue;
+        const std::string name = l.substr(a + 1, b - a - 1), where = l.substr(b + 1);
+        for (auto& p : playlists) if (p.name == name && p.path == where) p.icon = l.substr(0, a);
     }
     // Your own playlists' tracks: "#name" then one path a line (lists.txt).
     FolderPlaylist* cur = nullptr;
@@ -190,7 +274,29 @@ void Store::load() {
             cur->tracks.push_back(l);
         }
     }
+    for (const auto& l : readLines(path("automix-lists.tsv"))) {   // Automix playlists: name, manual, waiting, pin
+        std::vector<std::string> f;
+        for (size_t a = 0, b; a <= l.size(); a = b + 1) {
+            b = l.find('\t', a);
+            if (b == std::string::npos) b = l.size();
+            f.push_back(l.substr(a, b - a));
+        }
+        if (f.size() < 4) continue;
+        for (auto& p : playlists)
+            if (p.own() && p.name == f[0]) {
+                p.automix = true;
+                p.manual = f[1] == "1";
+                p.waiting = f[2] == "1";
+                p.pin = f[3];
+            }
+    }
     liked = readLines(path("liked.txt"));
+    eqUser.clear();
+    for (const auto& l : readLines(path("eq-presets.txt"))) {
+        GfEqUser u{};
+        if (gfEqParseUser(l.c_str(), &u) && eqUser.size() < GFEQ_USER_MAX) eqUser.push_back(u);
+    }
+    if (eq.preset >= GFEQ_PRESETS + int(eqUser.size())) gfEqMakeCustom(&eq);   // a preset deleted meanwhile: what it set stays, as Custom
     edits.clear();
     for (const auto& l : readLines(path("edits.tsv"))) {
         // path \t field=value \t field=value …
@@ -210,6 +316,46 @@ void Store::load() {
         const size_t tab = l.find('\t');
         if (tab != std::string::npos) covers[l.substr(0, tab)] = l.substr(tab + 1);
     }
+    lyricNudge.clear();
+    for (const auto& l : readLines(path("lyric-offsets.tsv"))) {
+        const size_t tab = l.find('\t');
+        if (tab != std::string::npos) lyricNudge[l.substr(0, tab)] = std::clamp(float(atof(l.c_str() + tab + 1)), -10.f, 10.f);
+    }
+    joins.clear();
+    for (const auto& l : readLines(path("mixes.tsv"))) {   // the key's three fields, then the join
+        const size_t tab = l.rfind('\t');
+        if (tab != std::string::npos && tab > 0) joins[l.substr(0, tab)] = l.substr(tab + 1);
+    }
+}
+
+/** mixes.tsv: "playlist<TAB>path A<TAB>path B<TAB>join", Automix's joins edited on playlist pages. */
+void Store::saveJoins() const {
+    std::string out;
+    for (const auto& [k, j] : joins) {
+        out += k;
+        out += '\t';
+        out += j;
+        out += '\n';
+    }
+    writeFile("mixes.tsv", std::move(out));
+}
+
+/** lyric-offsets.tsv: "path<TAB>seconds", the lyrics nudge per track (written by the writer thread). */
+void Store::saveLyricNudges() const {
+    std::string out;
+    for (const auto& [p, s] : lyricNudge) appendf(out, "%s\t%.1f\n", p.c_str(), double(s));
+    writeFile("lyric-offsets.tsv", std::move(out));
+}
+
+/** eq-presets.txt (GFEQ_USER): your saved equalizer presets, as gfEqParseUser reads them. */
+void Store::saveEqPresets() const {
+    std::string out;
+    for (const auto& u : eqUser) {
+        appendf(out, "%s\t%.1f\t%.1f\t%.1f\t", u.name, double(u.preamp), double(u.bass), double(u.treble));
+        for (int b = 0; b < GFEQ_BANDS; b++) appendf(out, b ? " %.1f" : "%.1f", double(u.bands[b]));
+        out += '\n';
+    }
+    writeFile("eq-presets.txt", std::move(out));
 }
 
 void Store::saveEdits() const {
@@ -245,18 +391,51 @@ void Store::save() const {
     appendf(f, "background=%d\n", background);
     appendf(f, "brightness=%d\nsaturation=%.2f\ncolourTransition=%.2f\ncustomBg=%d\ncustomAccent=%d\ncustomAccent2=%d\n", brightness, double(saturation),
             double(colourTransition), customBg, customAccent, customAccent2);
+    appendf(f, "customMode=%d\n", customMode);
     appendf(f, "viewPlaylist=%d\nviewFolders=%d\nviewTracks=%d\nlibTab=%d\ntracksSort=%d\ntracksDesc=%d\n", viewPlaylist, viewFolders, viewTracks, libTab,
             tracksSort, tracksDesc);
     appendf(f, "pointerSpeed=%.2f\npointerAccel=%d\nframeTimes=%d\nviewGenre=%d\n", double(pointerSpeed), pointerAccel, frameTimes, viewGenre);
     appendf(f, "keepAwake=%d\ndimAfter=%d\nsleepConsole=%d\n", keepAwake, dimAfter, sleepConsole);
+    if (!automixModel.empty()) appendf(f, "automixModel=%s\n", automixModel.c_str());
+    if (!modelToasted.empty()) appendf(f, "modelToasted=%s\n", modelToasted.c_str());
+    if (heldOrder >= 0) appendf(f, "heldOrder=%d\n", heldOrder);
+    appendf(f, "mixAnimNow=%d\nmixAnimCanvas=%d\nmixHint=%d\n", mixAnimNow, mixAnimCanvas, mixHint);
     appendf(f, "batteryPercent=%d\nbatteryEstimate=%d\n", batteryPercent, batteryEstimate);
+    appendf(f, "stopCovers=%d\nstopThumbs=%d\nstopLevels=%d\n", stopCovers, stopThumbs, stopLevels);
+    appendf(f, "lyricTiming=%d\nlyricTimingFor=%d\n", lyricTiming, lyricTimingFor);
     appendf(f, "levelMode=%d\nlevelTarget=%d\n", levelMode, levelTarget);
+    appendf(f, "crossfade=%.1f\nxfadeNotInAlbum=%d\n", double(crossfade), xfadeNotInAlbum);
+    appendf(f, "eqEdited=%d\n", eq.edited);
+    appendf(f, "eqOn=%d\neqAdvanced=%d\neqPreset=%d\neqPreamp=%.1f\neqBass=%.1f\neqTreble=%.1f\neqBands=", eq.on, eq.advanced, eq.preset,
+            double(eq.preamp), double(eq.bass), double(eq.treble));
+    for (int b = 0; b < GFEQ_BANDS; b++) appendf(f, b ? " %.1f" : "%.1f", double(eq.bands[b]));
+    appendf(f, "\n");
+    if (eq.hasCustom) {
+        appendf(f, "eqCustom=");
+        for (int b = 0; b < GFEQ_BANDS; b++) appendf(f, b ? " %.1f" : "%.1f", double(eq.custom[b]));
+        appendf(f, "\n");
+    }
+    appendf(f, "subsonicEnabled=%d\nsubsonicUrl=%s\nsubsonicUser=%s\nsubsonicPassword=%s\n",
+            subsonic.enabled, subsonic.url.c_str(), subsonic.user.c_str(), subsonic.password.c_str());
     if (!musicRoot.empty()) appendf(f, "musicRoot=%s\n", musicRoot.c_str());
+    appendf(f, "tabOrder=");
+    for (size_t i = 0; i < tabOrder.size(); i++) appendf(f, i ? ",%d" : "%d", tabOrder[i]);
+    appendf(f, "\ntabLines=1");   // knows placed lines (Store::load)
+    appendf(f, "\n");
+    appendf(f, "showHidden=%d\nfilesTab=1\nviewPlaylists=%d\n", showHidden, viewPlaylists);   // filesTab: hiddenTabs already knows the Files tab (bit 6)
+    for (const auto& [k, v] : { std::pair<const char*, const std::string*>{ "filesDir", &filesDir }, { "importDir", &importDir },
+                                { "exportDir", &exportDir }, { "coverDir", &coverDir }, { "backupDir", &backupDir } })
+        if (!v->empty()) appendf(f, "%s=%s\n", k, v->c_str());
+    appendf(f, "updates=%d\nupdateAtStart=%d\nbetas=%d\nreports=%d\n", updates, updateAtStart, betas ? 1 : 0, reports ? 1 : 0);
+    if (!updateToasted.empty()) appendf(f, "updateToasted=%s\n", updateToasted.c_str());
     writer().put(path("settings.txt"), std::move(f));
 
     std::string pl;
     for (const auto& p : playlists) appendf(pl, "%s\t%s\n", p.name.c_str(), p.path.c_str());
     writer().put(path("playlists.txt"), std::move(pl));
+    std::string icons;
+    for (const auto& p : playlists) if (!p.icon.empty()) appendf(icons, "%s\t%s\t%s\n", p.icon.c_str(), p.name.c_str(), p.path.c_str());
+    writer().put(path("playlist-icons.tsv"), std::move(icons));
     std::string own;
     for (const auto& p : playlists) {
         if (!p.own()) continue;
@@ -264,12 +443,18 @@ void Store::save() const {
         for (const auto& t : p.tracks) appendf(own, "%s\n", t.c_str());
     }
     writer().put(path("lists.txt"), std::move(own));
+    // Automix playlists: "name<TAB>manual<TAB>waiting<TAB>pin" (a file of their own, so older versions read the rest)
+    std::string am;
+    for (const auto& p : playlists)
+        if (p.own() && p.automix) appendf(am, "%s\t%d\t%d\t%s\n", p.name.c_str(), p.manual ? 1 : 0, p.waiting ? 1 : 0, p.pin.c_str());
+    writer().put(path("automix-lists.tsv"), std::move(am));
     std::string lk;
     for (const auto& p : liked) appendf(lk, "%s\n", p.c_str());
     writer().put(path("liked.txt"), std::move(lk));
 }
 
 void Store::flush() { writer().flush(); }
+void Store::stopWriter() { writer().stop(); }
 
 void Store::writeFile(const char* file, std::string data) const {
     makeDirs();
@@ -305,16 +490,20 @@ void Store::saveSession(const Session& s) const {
     writer().put(path("session.txt"), std::move(f));
 }
 
-int Store::newPlaylist(std::string name) {
+/** name, or "name 2", "name 3" …: playlists are known by name (lists.txt, the game actions' lists, the overlay). */
+std::string Store::freePlaylistName(std::string name) const {
     if (name.empty()) name = "Playlist";
     const std::string base = name;
     for (int n = 2;; n++) {
-        bool taken = false;
+        bool taken = name == "Liked";   // the background player and the overlay know Liked by that name
         for (const auto& p : playlists) taken |= p.name == name;
-        if (!taken) break;
+        if (!taken) return name;
         name = base + " " + std::to_string(n);
     }
-    playlists.push_back({ name, "", {} });
+}
+
+int Store::newPlaylist(std::string name) {
+    playlists.push_back({ freePlaylistName(std::move(name)), "", {} });
     return int(playlists.size()) - 1;
 }
 

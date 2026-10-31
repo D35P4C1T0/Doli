@@ -2,6 +2,7 @@
  * Gatefold NX · metacache.cpp
  */
 #include "metacache.hpp"
+#include "coverio.hpp"
 
 #include <SDL2/SDL_image.h>
 #ifdef __SWITCH__
@@ -126,6 +127,8 @@ void MetaCache::start(Library* lib, const std::string& cacheFile) {
     done_.assign(paths_.size(), 0);
     coverFile_.assign(paths_.size(), std::string());
     load();
+    for (int i = 0; i < int(lib->tracks.size()); ++i)
+        if (!lib->tracks[i].subsonicId.empty()) { done_[i] = 1; tagged_++; }
     artDir_ = cacheFile_.substr(0, cacheFile_.find_last_of('/')) + "/art";
     mkdir(artDir_.c_str(), 0777);
     loadArtMap();
@@ -275,12 +278,13 @@ void MetaCache::run() {
         {
             std::unique_lock<std::mutex> lk(m_);
             const int n = int(paths_.size());
-            const bool sweeping = sweep_ < n || (artSweep_ < n && std::chrono::steady_clock::now() >= artBegin_);
+            const bool artDue = artSweep_ < n && !artPaused_ && std::chrono::steady_clock::now() >= artBegin_;
+            const bool sweeping = sweep_ < n || artDue;
             cv_.wait_for(lk, std::chrono::milliseconds(urgent_.empty() && sweeping ? 2 : 500), [&] { return quit_ || !urgent_.empty(); });
             if (quit_) return;
             if (!urgent_.empty()) { job = urgent_.front(); urgent_.pop_front(); }
             else if (sweep_ < n) job = { false, sweep_++ };
-            else if (artSweep_ < n && std::chrono::steady_clock::now() >= artBegin_) { job = { true, artSweep_++, true }; artSweepPos_ = artSweep_; }
+            else if (artDue) { job = { true, artSweep_++, true }; artSweepPos_ = artSweep_; }
             else continue;
         }
 
@@ -343,7 +347,7 @@ void MetaCache::run() {
             bytes = findFolderCover(folders_[job.idx]);
         }
         if (!bytes.empty())
-            if (SDL_Surface* s = IMG_Load_RW(SDL_RWFromConstMem(bytes.data(), int(bytes.size())), 1)) {
+            if (SDL_Surface* s = loadImage(bytes, paths_[job.idx].c_str())) {
                 res.thumb = squareThumb(s, ThumbSize);
                 SDL_FreeSurface(s);
                 if (res.thumb) res.pal = paletteOf(res.thumb);
@@ -393,7 +397,7 @@ void MetaCache::cacheArtOnly(int idx, const std::string& mine) {
             known(file);
             return;
         }
-        if (SDL_Surface* s = IMG_Load_RW(SDL_RWFromConstMem(bytes.data(), int(bytes.size())), 1)) {
+        if (SDL_Surface* s = loadImage(bytes)) {
             res.thumb = squareThumb(s, ThumbSize);
             SDL_FreeSurface(s);
         }
@@ -417,7 +421,7 @@ bool MetaCache::cachedArt(int idx, const std::string& mine, ArtResult& res) {
         if (!folderDecoded_.insert(e.key).second) { res.shared = true; return true; }
     }
     const std::vector<uint8_t> jpg = readAll(artDir_ + "/" + e.file);
-    SDL_Surface* s = jpg.empty() ? nullptr : IMG_Load_RW(SDL_RWFromConstMem(jpg.data(), int(jpg.size())), 1);
+    SDL_Surface* s = loadImage(jpg);
     if (s) {
         res.thumb = squareThumb(s, ThumbSize);
         SDL_FreeSurface(s);
@@ -457,6 +461,14 @@ void MetaCache::storeArt(int idx, const std::vector<uint8_t>& source, const ArtR
     if (++artNew_ >= 20) saveArtMap();
 }
 
+/**
+ * The cover reader's version, the map's first line ("#covers <n>"): a track remembered without a cover ("-") by an older
+ * reader is tried again, its good covers kept. 2: FLAC pictures read by our own reader and images decoded by stb_image
+ * when SDL_image cannot (coverio.cpp; the user's FLACs had none on the console, 2026-10-30). Raise it when the reader
+ * finds covers it could not before. (Older Songates skip the line: it has no tab.)
+ */
+constexpr int kCoverReader = 2;
+
 void MetaCache::loadArtMap() {
     artMap_.clear();
     artByKey_.clear();
@@ -464,6 +476,14 @@ void MetaCache::loadArtMap() {
     std::vector<uint8_t> raw = readAll(artDir_ + "/map.tsv");   // in one go, split in place (see load)
     const char* p = reinterpret_cast<const char*>(raw.data());
     const char* const end = p + raw.size();
+    int reader = 1;   // (a map from before the line: the first reader)
+    if (raw.size() > 8 && !memcmp(p, "#covers ", 8)) {
+        reader = atoi(p + 8);
+        const char* eol = static_cast<const char*>(memchr(p, '\n', size_t(end - p)));
+        p = eol ? eol + 1 : end;
+    }
+    const bool retryMissing = reader < kCoverReader;
+    bool dropped = false;
     artMap_.reserve(paths_.size());
     while (p < end) {
         const char* eol = static_cast<const char*>(memchr(p, '\n', size_t(end - p)));
@@ -474,15 +494,17 @@ void MetaCache::loadArtMap() {
         if (b) {
             std::string file(a + 1, b), key(b + 1, lineEnd);
             if (file != "-") artByKey_[key] = file;
-            artMap_[strtoull(std::string(p, a).c_str(), nullptr, 16)] = { std::move(file), std::move(key) };
+            if (file == "-" && retryMissing) dropped = true;   // found nothing then: asked again by this reader
+            else artMap_[strtoull(std::string(p, a).c_str(), nullptr, 16)] = { std::move(file), std::move(key) };
         }
         p = eol + 1;
     }
     artCount_ = int(artMap_.size());
+    if (dropped || (retryMissing && !raw.empty())) saveArtMap();   // (with the new line: they are asked once)
 }
 
 void MetaCache::saveArtMap() {
-    std::string out;
+    std::string out = "#covers " + std::to_string(kCoverReader) + "\n";
     for (const auto& [h, e] : artMap_) out += hex16(h) + "\t" + e.file + "\t" + e.key + "\n";
     if (files::writeAtomic(artDir_ + "/map.tsv", out)) artNew_ = 0;
 }
@@ -523,6 +545,7 @@ void MetaCache::load() {
         auto it = byPath.find(cols[0]);
         if (it == byPath.end()) continue;
         Track& t = lib_->tracks[it->second];
+        if (!t.subsonicId.empty()) continue;
         if (!cols[1].empty()) t.title = cols[1];
         if (!cols[2].empty()) t.artist = cols[2];
         if (!cols[3].empty()) t.album = cols[3];
@@ -548,6 +571,13 @@ void MetaCache::save() {
                    + field(t.albumArtist) + "\t" + std::to_string(t.trackNo) + "\t" + field(t.genre) + "\n";
         }
     if (files::writeAtomic(cacheFile_, out)) dirty_ = false;
+}
+
+void MetaCache::clearCovers() {
+    artMap_.clear();
+    artByKey_.clear();
+    artCount_ = 0;
+    remove((artDir_ + "/map.tsv").c_str());
 }
 
 void MetaCache::clearDiskCache() {

@@ -15,6 +15,8 @@
 
 struct Track {
     std::string path;
+    std::string subsonicCoverId;
+    std::string subsonicId;   // empty for SD-card tracks
     std::string folder;
     std::string title, artist, album, date;   // from the file name until tags arrive
     std::string albumArtist, genre;   // genre: one or more, "; "-separated
@@ -64,3 +66,5 @@ std::string baseName(const std::string& path);
 
 /** Sub-folders of a directory (hidden ones skipped), sorted by name; for the folder picker. */
 std::vector<std::string> listDirs(const std::string& path);
+/** The .m3u / .m3u8 files in a directory (names only), sorted; for + → Import a playlist file. */
+std::vector<std::string> listPlaylistFiles(const std::string& path);

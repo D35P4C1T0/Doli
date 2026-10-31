@@ -3,6 +3,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -31,8 +32,12 @@ inline u64 padGetButtonsDown(const PadState* p) { return p->buttons & ~p->old; }
 HidAnalogStickState padGetStickPos(const PadState*, u32);
 
 bool appletMainLoop();
-inline Result appletSetMediaPlaybackState(bool) { return 0; }
+inline Result appletSetMediaPlaybackState(bool on) { printf("[applet] media playing %d\n", int(on)); return 0; }
 inline Result appletSetAutoSleepTimeAndDimmingTimeEnabled(bool) { return 0; }
+typedef enum { AppletIdleTimeDetectionExtension_None = 0, AppletIdleTimeDetectionExtension_Extended = 1, AppletIdleTimeDetectionExtension_ExtendedUnsafe = 2 } AppletIdleTimeDetectionExtension;
+// Printed, as the backlight is: item 12 (the screen dimmed with Keep awake on) is checked by what Gatefold asks for
+inline Result appletSetIdleTimeDetectionExtension(AppletIdleTimeDetectionExtension e) { printf("[applet] idle time extension %d\n", int(e)); return 0; }
+inline Result appletSetAutoSleepDisabled(bool on) { printf("[applet] auto-sleep %s\n", on ? "off" : "on"); return 0; }
 enum AppletHookType { AppletHookType_OnFocusState = 0, AppletHookType_OnOperationMode, AppletHookType_OnPerformanceMode, AppletHookType_OnExitRequest };
 enum AppletFocusState { AppletFocusState_InFocus = 1, AppletFocusState_OutOfFocus = 2, AppletFocusState_Background = 3 };
 typedef void (*AppletHookFn)(AppletHookType hook, void* param);
@@ -71,11 +76,12 @@ Result lblGetCurrentBrightnessSetting(float* out);
 Result lblSetCurrentBrightnessSetting(float brightness);
 inline Result lblApplyCurrentBrightnessSettingToBacklight() { return 0; }
 
-struct SwkbdConfig { int unused; };
-inline Result swkbdCreate(SwkbdConfig*, s32) { return 0; }
+// The keyboard's texts are kept: the live test environment shows them on its page
+struct SwkbdConfig { char header[128]; char guide[128]; char initial[512]; };
+inline Result swkbdCreate(SwkbdConfig* c, s32) { c->header[0] = c->guide[0] = c->initial[0] = 0; return 0; }
 inline void swkbdConfigMakePresetDefault(SwkbdConfig*) {}
-inline void swkbdConfigSetGuideText(SwkbdConfig*, const char*) {}
-inline void swkbdConfigSetHeaderText(SwkbdConfig*, const char*) {}
-inline void swkbdConfigSetInitialText(SwkbdConfig*, const char*) {}
+inline void swkbdConfigSetGuideText(SwkbdConfig* c, const char* t) { snprintf(c->guide, sizeof c->guide, "%s", t ? t : ""); }
+inline void swkbdConfigSetHeaderText(SwkbdConfig* c, const char* t) { snprintf(c->header, sizeof c->header, "%s", t ? t : ""); }
+inline void swkbdConfigSetInitialText(SwkbdConfig* c, const char* t) { snprintf(c->initial, sizeof c->initial, "%s", t ? t : ""); }
 Result swkbdShow(SwkbdConfig*, char* out, size_t size);
 inline void swkbdClose(SwkbdConfig*) {}

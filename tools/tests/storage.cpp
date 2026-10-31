@@ -151,5 +151,14 @@ int main() {
     wake.notify_all();
     Store::flush();
     assert(read(store.path("race")) == "B");
+    failRename = true;
+    store.writeFile("stop", "failed save");
+    Store::flush();
+    Store::stopWriter();   // a full SD card must not keep the process alive on exit
+    failRename = false;
+    store.writeFile("stop", "newest save");
+    Store::flush();
+    assert(read(store.path("stop")) == "newest save");
+    Store::stopWriter();
     puts("storage checks passed");
 }

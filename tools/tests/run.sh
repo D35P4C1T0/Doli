@@ -4,7 +4,7 @@ repo="$(cd "$(dirname "$0")/../.." && pwd)"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 cxx="${CXX:-c++}"
-"$cxx" -std=c++20 -Wall -Wextra -pthread "$repo/tools/tests/storage.cpp" -o "$out/storage"
+"$cxx" -std=c++20 -Wall -Wextra -pthread -I "$repo/sysmodule/include" "$repo/tools/tests/storage.cpp" -o "$out/storage"
 "$cxx" -std=c++20 -Wall -Wextra "$repo/tools/tests/tags.cpp" "$repo/source/library.cpp" -o "$out/tags"
 "$cxx" -std=c++20 -Wall -Wextra -I "$repo/sysmodule/lib/helix-aac" "$repo/tools/tests/mp4.cpp" -o "$out/mp4"
 cd "$out"

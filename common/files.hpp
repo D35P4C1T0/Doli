@@ -24,19 +24,20 @@ inline FILE* openRead(const std::string& path) {
     return f;
 }
 
-inline bool writeAtomic(const std::string& path, const std::string& data) {
-    const std::string tmp = path + ".tmp", backup = path + ".bak";
-    FILE* f = fopen(tmp.c_str(), "wb");
-    if (!f) return false;
-    bool ok = fwrite(data.data(), 1, data.size(), f) == data.size();
-    if (fflush(f) != 0) ok = false;
+inline bool closeSynced(FILE* f) {
+    bool ok = fflush(f) == 0;
 #ifdef _WIN32
     if (_commit(_fileno(f)) != 0) ok = false;
 #else
     if (fsync(fileno(f)) != 0) ok = false;
 #endif
     if (fclose(f) != 0) ok = false;
-    if (!ok) { remove(tmp.c_str()); return false; }
+    return ok;
+}
+
+/** The temporary file must already be fully written, synced and closed. */
+inline bool replaceAtomic(const std::string& path, const std::string& tmp) {
+    const std::string backup = path + ".bak";
     if (rename(tmp.c_str(), path.c_str()) != 0) {
         if (errno != EEXIST) return false;
         struct stat st;
@@ -55,6 +56,16 @@ inline bool writeAtomic(const std::string& path, const std::string& data) {
     }
     remove(backup.c_str());
     return true;
+}
+
+inline bool writeAtomic(const std::string& path, const std::string& data) {
+    const std::string tmp = path + ".tmp";
+    FILE* f = fopen(tmp.c_str(), "wb");
+    if (!f) return false;
+    bool ok = fwrite(data.data(), 1, data.size(), f) == data.size();
+    ok = closeSynced(f) && ok;
+    if (!ok) { remove(tmp.c_str()); return false; }
+    return replaceAtomic(path, tmp);
 }
 
 inline std::vector<std::string> readLines(const std::string& path) {

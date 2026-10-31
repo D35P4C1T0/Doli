@@ -35,7 +35,7 @@ Tiles tilesFor(float w) {
 
 // ============================================================ layout
 
-std::vector<App::ListEntry> App::listLayout(const std::vector<int>& tracks, float w, ListMode mode) const {
+std::vector<App::ListEntry> App::listLayout(const std::vector<int>& tracks, float w, ListMode mode, float joinGap) const {
     std::vector<ListEntry> out;
     float y = 0;
     if (mode == ListMode::Grid) {
@@ -56,6 +56,7 @@ std::vector<App::ListEntry> App::listLayout(const std::vector<int>& tracks, floa
         const float h = mode == ListMode::Covers ? CovRowH : RowH;
         out.push_back({ ListEntry::Row, i, y, h });
         y += h;
+        if (i + 1 < int(tracks.size())) y += joinGap;
     }
     return out;
 }
@@ -75,13 +76,20 @@ float App::listRowY(const std::vector<ListEntry>& layout, int index) const {
 // ============================================================ pieces
 
 /** The four-icon view switch (.pl-modes), right-aligned at rx; returns its width. */
-float App::viewSwitch(const char* key, float rx, float cy, int& mode) {
+float App::viewSwitch(const char* key, float rx, float cy, int& mode, unsigned hidden) {
     static const char* icons[4] = { ICON_V_ALBUMS, ICON_V_COVERS, ICON_V_GRID, ICON_V_LIST };
-    const float bw = 38, h = 36, w = 6 + bw * 4, x0 = rx - w;
+    int shown = 0;
+    for (int i = 0; i < 4; i++) shown += !(hidden & (1u << i));
+    const float bw = 38, h = 36, w = 6 + bw * shown, x0 = rx - w;
     g.roundRect(x0, cy - h / 2, w, h, 12, pal.text, 0.05f);
     g.roundStroke(x0, cy - h / 2, w, h, 12, 1, pal.text, 0.09f);
-    for (int i = 0; i < 4; i++) {
-        const float bx = x0 + 3 + i * bw;
+    // From the biggest to the smallest (the user's ask): tiles, by album, with covers, the plain list. The numbers stay
+    // what they were (settings.txt), only the order shown changes.
+    static const int order[4] = { int(ListMode::Grid), int(ListMode::Albums), int(ListMode::Covers), int(ListMode::List) };
+    int slot = 0;
+    for (int i : order) {
+        if (hidden & (1u << i)) continue;   // a view that means nothing here (Playlists and Folders have no "by album")
+        const float bx = x0 + 3 + slot++ * bw;
         const Id id = uid(key, i);
         if (ui.item(id, { bx, cy - h / 2 + 3, bw, h - 6 }, 9)) { mode = i; persistSoon(0.5f); }
         const bool on = mode == i, hot = ui.pressed(id) || (ui.focused(id) && ui.showFocusRing());
@@ -252,8 +260,8 @@ void App::groupHead(const char* key, int index, int track, float x, float y, flo
  * only what lies in [clipY, clipY + clipH). play(i) runs when row i is chosen. Returns the height.
  */
 float App::drawTrackBody(const char* key, const std::vector<int>& tracks, float x, float top, float w, float clipY, float clipH, ListMode mode,
-                         bool extended, const std::function<void(int)>& play) {
-    const std::vector<ListEntry> layout = listLayout(tracks, w, mode);
+                         bool extended, const std::function<void(int)>& play, float joinGap) {
+    const std::vector<ListEntry> layout = listLayout(tracks, w, mode, joinGap);
     const Tiles tl = tilesFor(w);
     bodyFocus = -1;
     bodyCols = mode == ListMode::Grid ? tl.cols : 1;
