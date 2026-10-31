@@ -1,4 +1,4 @@
-"""Keeps the open-source Automix repository (songate-automix) in step with Songate: Songate's files are the source of
+"""Keeps the open-source Automix repository (songate-automix) in step with Doli: Doli's files are the source of
 truth, copied there as they are (the user's choice, 2026-10-30: a copy kept in step by a script).
 
     python tools/automix/sync-automix.py [<songate-automix folder>]          copy what changed
@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 FROZEN = os.path.join(HERE, 'frozen.json')
 
-FILES = {   # Songate's file → the repository's
+FILES = {   # Doli's file → the repository's
     'source/mixan.hpp': 'src/mixan.hpp', 'source/mixan.cpp': 'src/mixan.cpp',
     'source/automix.hpp': 'src/automix.hpp', 'source/automix.cpp': 'src/automix.cpp',
     'tools/preview/mixtest.cpp': 'tools/mixtest.cpp', 'tools/preview/mixtrain.cpp': 'tools/mixtrain.cpp',

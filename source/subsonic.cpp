@@ -117,7 +117,7 @@ bool request(const SubsonicConfig& config, const char* method, const std::string
 #endif
     const std::string salt = hex(reinterpret_cast<unsigned char*>(random), sizeof random);
     const std::string url = base + "/rest/" + method + ".view?u=" + encode(config.user) + "&t=" + md5(config.password + salt)
-        + "&s=" + salt + "&v=1.16.1&c=Songate&f=xml" + args;
+        + "&s=" + salt + "&v=1.16.1&c=Doli&f=xml" + args;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_PROTOCOLS, long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
     // Redirects stay off: authentication query parameters must never reach another origin.

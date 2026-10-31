@@ -37,13 +37,13 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-TARGET		:=	Songate
+TARGET		:=	Doli
 BUILD		:=	build
 SOURCES		:=	source
 DATA		:=	data
 INCLUDES	:=	source sysmodule/include
-APP_TITLE	:=	Songate
-APP_AUTHOR	:=	AndryTheBeast
+APP_TITLE	:=	Doli
+APP_AUTHOR	:=	D35P4C1T0
 APP_VERSION	:=	2.0.0 BETA 1
 ROMFS	:=	romfs
 

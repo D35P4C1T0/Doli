@@ -96,13 +96,13 @@ std::string App::updateStatus() const {
 
 /** Updates are off until allowed here: what going online means, said before anything does. */
 void App::allowUpdates() {
-    confirm(UPD_SHIELD, "Updates", "Connect to the internet?", "GitHub · AndryTheBeast/Songate", "Allow Songate to go online?",
-            "Songate connects to GitHub only when you check for updates or install one, and at launch if you turn that on. "
-            "GitHub sees your console's IP address and Songate's version, nothing else. You can turn this off at any time.",
+    confirm(UPD_SHIELD, "Updates", "Connect to the internet?", "GitHub · D35P4C1T0/Doli", "Allow Doli to go online?",
+            "Doli connects to GitHub only when you check for updates or install one, and at launch if you turn that on. "
+            "GitHub sees your console's IP address and Doli's version, nothing else. You can turn this off at any time.",
             "Allow", [this] {
                 store.updates = 1;
                 persistSoon(0.3f);
-                toast("Updates allowed: Songate goes online only when you ask");
+                toast("Updates allowed: Doli goes online only when you ask");
             });
     sheet.askSafe = true;
     sheet.askYesIcon = ICON_CHECK;
@@ -135,7 +135,7 @@ void App::updateTick() {
     if (!updater.poll()) return;
     if (updater.justChecked) {
         const int n = updater.newer(store.betas);
-        // a model this Songate can play, not downloaded yet: announced once (the user: "Automix V1.2.0 available")
+        // a model this Doli can play, not downloaded yet: announced once (the user: "Automix V1.2.0 available")
         std::string newModel;
         for (const ModelRow& r : modelList())
             if (r.offer >= 0 && !r.downloaded && Updater::modelUsable(updater.models[size_t(r.offer)]) && r.name != store.modelToasted) newModel = r.name;
@@ -152,7 +152,7 @@ void App::updateTick() {
         } else if (!updater.error.empty()) {
             toast("Could not check: " + updater.error);
         } else {
-            toast(n >= 0 ? Updater::releaseName(updater.releases[size_t(n)].version) + " is out" : "Songate is up to date");
+            toast(n >= 0 ? Updater::releaseName(updater.releases[size_t(n)].version) + " is out" : "Doli is up to date");
             if (!newModel.empty()) {
                 store.modelToasted = newModel;
                 persistSoon(0.3f);
@@ -232,7 +232,7 @@ void App::updateSheetRows(std::vector<SheetRow>& rows) {
         text(ICON_BOLT, "A beta: it can be unstable and have bugs. Please report what you find: " ISSUES_URL, true);
     if (!r.manifest)
         text(ICON_INFO, r.version + " cannot update itself (it has no Updates page). To come back later, copy a newer release from "
-                            "github.com/AndryTheBeast/Songate/releases to the SD card by hand; your settings are backed up first.", true);
+                            "github.com/D35P4C1T0/Doli/releases to the SD card by hand; your settings are backed up first.", true);
     // ---- the changelog
     if (r.log.empty()) {
         rows.push_back({ Row::Group, nullptr, "What's new" });
@@ -302,7 +302,7 @@ void App::modelSheetHeader(const char*& icon, std::string& kick, std::string& ti
     icon = ICON_SPARKLE;
     kick = std::string("Automix model · ") + (row.name == mixName() ? "In use" : row.builtin ? "Built in" : row.downloaded ? "Downloaded" : "Available");
     title = row.name;
-    sub = row.builtin ? "Comes with Songate" : m ? longDate(m->date) + " · " + std::to_string(std::max<int64_t>(1, m->size / 1024)) + " KB" : "Downloaded";
+    sub = row.builtin ? "Comes with Doli" : m ? longDate(m->date) + " · " + std::to_string(std::max<int64_t>(1, m->size / 1024)) + " KB" : "Downloaded";
 }
 
 void App::modelSheetRows(std::vector<SheetRow>& rows) {
@@ -325,7 +325,7 @@ void App::modelSheetRows(std::vector<SheetRow>& rows) {
         rows.push_back({ Row::Action, ICON_CHECK, "In use", "It plans every join, and the order of Automix playlists ordered again", "", nullptr });
     } else if (row.builtin || row.downloaded) {
         rows.push_back({ Row::Action, row.builtin ? ICON_HISTORY : ICON_SPARKLE, (row.builtin ? "Go back to " : "Use ") + name,
-                         row.builtin ? "Songate's own model: back to it at any time" : "From the next join", "", [this, name] { useModel(name); } });
+                         row.builtin ? "Doli's own model: back to it at any time" : "From the next join", "", [this, name] { useModel(name); } });
     } else if (updater.busy()) {
         rows.push_back({ Row::Action, ICON_HOURGLASS, updater.working() == name ? updateStatus() : "Busy with " + updater.working(),
                          "Settings › Updates shows how far", "", nullptr });
@@ -334,7 +334,7 @@ void App::modelSheetRows(std::vector<SheetRow>& rows) {
         rows.push_back({ Row::Action, ICON_DOWNLOAD, "Download and use", "Checked by its checksum, kept in config/gatefold-nx/models",
                          std::to_string(std::max<int64_t>(1, m->size / 1024)) + " KB", [this, offer] { downloadModel(offer); } });
     } else {
-        text(ICON_INFO, why.empty() ? "It needs a newer Songate" : why, true);
+        text(ICON_INFO, why.empty() ? "It needs a newer Doli" : why, true);
     }
     if (!rows.empty() && rows.back().kind == Row::Action) rows.back().h = 62;
     rows.push_back({ Row::Group, nullptr, "What's new" });
@@ -343,7 +343,7 @@ void App::modelSheetRows(std::vector<SheetRow>& rows) {
     else if (m && !m->notes.empty()) for (const std::string& n : m->notes) text(nullptr, n);
     else text(nullptr, "This model has no notes.");
     text(ICON_INFO, "A model comes over the air when only its numbers change. One that needs new logic (a new kind of join) or a new "
-                    "analysis comes with a Songate update.");
+                    "analysis comes with a Doli update.");
 }
 
 void App::installRelease(int i) {
@@ -356,7 +356,7 @@ void App::installRelease(int i) {
     std::string text = "Your settings are backed up first. Then the app, the background player and the overlay are replaced; "
                        "Restart now finishes it (the music stops for a moment).";
     if (cmp < 0) {
-        text += " Your playlists, Liked and edits stay. Start fresh clears the settings when Songate closes; the backup keeps them.";
+        text += " Your playlists, Liked and edits stay. Start fresh clears the settings when Doli closes; the backup keeps them.";
     }
 
     confirm(cmp > 0 ? ICON_DOWNLOAD : cmp < 0 ? ICON_HISTORY : ICON_REFRESH, cmp > 0 ? "Update" : cmp < 0 ? "Go back" : "Install again",
@@ -375,7 +375,7 @@ void App::installRelease(int i) {
 
 void App::restoreBackup(const UpdBackup& b) {
     confirm(ICON_HISTORY, "Backups", b.name, b.note, "Put these settings back?",
-            "Your settings now are backed up first. Then Songate restarts with these: settings, playlists, Liked, edits and statistics "
+            "Your settings now are backed up first. Then Doli restarts with these: settings, playlists, Liked, edits and statistics "
             "as they were then.",
             "Restore and restart", [this, path = b.path] {
                 persistNow();
@@ -407,7 +407,7 @@ void App::restoreBackup(const UpdBackup& b) {
  * the next launch (dropped in memory, not on the card).
  */
 void App::resetSettings() {
-    confirm(ICON_REFRESH, "Reset", "Reset settings", "Every setting, as Songate came", "Reset every setting?",
+    confirm(ICON_REFRESH, "Reset", "Reset settings", "Every setting, as Doli came", "Reset every setting?",
             "Colours, the sidebar, playback, the equalizer, lyrics, the Canvas, the visualizer, controls, where browsers open, "
             "updates, and the background player's game actions and fades go back to how they came. Only settings: your music "
             "folder, playlists, Liked, tag edits, covers, statistics and saved presets stay (Factory reset, below, erases those).",
@@ -452,7 +452,7 @@ struct FactoryPartInfo { const char* label; const char* sub; };
 // In App::FactoryPart's order (and Updater::factoryFiles')
 const FactoryPartInfo kFactoryParts[] = {
     { "Settings", "Every setting, the background player's game actions and fades too" },
-    { "Music folder", "Songate asks where your music is again, as at its first start" },
+    { "Music folder", "Doli asks where your music is again, as at its first start" },
     { "Playlists", "Your playlists, smart and folder ones, and their icons" },
     { "Liked", "Every track you liked" },
     { "Tag edits and covers", "Tags you edited and covers you chose (your music files were never changed)" },
@@ -488,11 +488,11 @@ void App::factoryRows(std::vector<SheetRow>& rows) {
     int n = 0;
     for (int k = 0; k < FacParts; k++) n += (factoryPick >> k) & 1;
     rows.push_back({ SheetRow::Action, ICON_X, "Erase what is ticked",
-                     n ? std::to_string(n) + " of " + std::to_string(int(FacParts)) + " ticked: they go when Songate closes and starts again"
+                     n ? std::to_string(n) + " of " + std::to_string(int(FacParts)) + " ticked: they go when Doli closes and starts again"
                        : "Tick what to erase above first",
                      "", n ? std::function<void()>([this] { factoryErase(factoryPick); }) : nullptr });
     rows.back().h = 60;
-    rows.push_back({ SheetRow::Action, ICON_X, "Erase everything", "As if Songate were newly installed: every part above, and the rest", "",
+    rows.push_back({ SheetRow::Action, ICON_X, "Erase everything", "As if Doli were newly installed: every part above, and the rest", "",
                      [this] { factoryErase(~0u); } });
     rows.back().h = 60;
 }
@@ -515,16 +515,16 @@ void App::factoryErase(unsigned mask) {
         for (int k = 0; k < FacParts; k++)
             if (mask & (1u << k)) list += (list.empty() ? "" : ", ") + std::string(kFactoryParts[k].label);
         confirm(ICON_X, "Factory reset", "Erase what is ticked", list, "Erase these for good?",
-                "Erased: " + list + ". Songate closes now and starts again without them. Only a backup made before can bring them back; "
+                "Erased: " + list + ". Doli closes now and starts again without them. Only a backup made before can bring them back; "
                 "your music files and backups in " + backupRoot() + " stay.",
                 "Erase", go);
         sheet.askWarn = "THIS CANNOT BE UNDONE";
         return;
     }
-    confirm(ICON_X, "Factory reset", "Erase everything", "Songate as if it were newly installed", "Erase everything Songate keeps?",
+    confirm(ICON_X, "Factory reset", "Erase everything", "Doli as if it were newly installed", "Erase everything Doli keeps?",
             "Every setting, playlist and Liked track; your tag edits, chosen covers, lyric timings and saved equalizer presets; play "
             "counts and statistics; the queue and the music folder; the background player's queue and game actions; every cache. "
-            "Songate then closes and starts again as new. Your music files are not touched, and backups in " + backupRoot() + " stay.",
+            "Doli then closes and starts again as new. Your music files are not touched, and backups in " + backupRoot() + " stay.",
             "Erase everything", [this, go] {
                 confirm(ICON_X, "Factory reset", "Are you absolutely sure?", "There is no way back", "Erase everything now?",
                         "Only a backup made before can bring any of it back. If you might want your playlists, Liked or settings "

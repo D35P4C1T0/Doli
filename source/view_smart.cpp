@@ -694,7 +694,7 @@ void App::drawSmartSheet() {
                              closeSheet();
                              newPlaylist(-1);
                          } });
-        rows.push_back({ Row::Action, ICON_SPARKLE, "Automix playlist…", "Pick songs; Songate orders them for the best joins", "",
+        rows.push_back({ Row::Action, ICON_SPARKLE, "Automix playlist…", "Pick songs; Doli orders them for the best joins", "",
                          [this] { openAutomixPicker(); } });
         rows.push_back({ Row::Action, PLI_SMART, "Smart playlist…", "Fills itself from your library and keeps up to date", "", [this] {
                              sheet.page = Sheet::Smart;
@@ -868,7 +868,7 @@ void App::drawSmartSheet() {
             rows.back().h = 44;
             rows.back().on = store.eq.preset < 0;
         }
-        if (rows.size()) { rows.push_back({ Row::Group, nullptr, "Songate's" }); rows.back().h = 34; }
+        if (rows.size()) { rows.push_back({ Row::Group, nullptr, "Doli's" }); rows.back().h = 34; }
         for (int i = 0; i < GFEQ_PRESETS; i++) {
             rows.push_back({ Row::Choice, nullptr, kGfEqPresets[i].name, "", "", [this, i] {
                                  GfbgEq e = store.eq;
@@ -1015,7 +1015,7 @@ void App::drawSmartSheet() {
                             : jobs ? "Running now"
                             : page == Sheet::Smart ? "Smart playlist" : "New playlist";
     const std::string sub = ownHead ? fileSub : page == Sheet::PlIcon ? "Its icon in the sidebar: A picks one" : plp ? "More for this playlist" : ask ? sheet.askSub
-                          : eqp ? "Yours keep the whole sound; Songate's set the ten bands only"
+                          : eqp ? "Yours keep the whole sound; Doli's set the ten bands only"
                           : actl ? "The playlist it plays, faded in"
                           : lacts ? "The game events that play it; off, they do what they usually do"
                           : rc ? rc->desc

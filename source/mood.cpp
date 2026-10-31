@@ -1,5 +1,5 @@
 /*
- * Songate · mood.cpp
+ * Doli · mood.cpp
  * See mood.hpp. The numbers were tuned on the user's library (tools: mixtrain mood, then a script that sorted and listed it).
  */
 #include "mood.hpp"

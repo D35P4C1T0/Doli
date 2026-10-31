@@ -1,8 +1,8 @@
 /*
  * Gatefold NX · updater.hpp
- * Settings → Updates: Songate's GitHub releases (AndryTheBeast/Songate, GatefoldNX until 2026-10-30), their changelogs, and installing any
+ * Settings → Updates: Doli's GitHub releases (D35P4C1T0/Doli), their changelogs, and installing any
  * of them, newer or older. Nothing goes online until Settings allows it (store.updates), and then only when asked
- * (or at launch, if "Check when Gatefold starts" is on).
+ * (or at launch, if "Check when Doli starts" is on).
  *
  * A release from 1.2.0 on carries a small manifest asset (gatefold-manifest.json, made by the release tools): its
  * version and background-player protocol, the zip's name, size and SHA-256, each file's path, size and SHA-256, and
@@ -34,8 +34,8 @@ struct UpdItem { std::string icon, text; };                                    /
 struct UpdLog { std::string icon, title; std::vector<UpdItem> items; };       // a changelog section
 struct UpdFile { std::string path; int64_t size = 0; std::string sha256; };     // path from the SD card's root
 
-// Where bugs are reported (Settings › Updates: the betas' warning); the repository was GatefoldNX until 2026-10-30
-#define ISSUES_URL "github.com/AndryTheBeast/Songate/issues"
+// Where bugs are reported (Settings › Updates: the betas' warning).
+#define ISSUES_URL "github.com/D35P4C1T0/Doli/issues"
 
 struct UpdRelease {
     std::string tag, version, name, date, body;   // date: "2026-10-27"; body: the GitHub notes (Markdown)
@@ -50,7 +50,7 @@ struct UpdRelease {
 
 /**
  * An Automix model sent over the air (the user, 2026-10-30): the model repository's latest release carries
- * songate-automix-models.json (each model's name, file, size, SHA-256, format, the lowest Songate that reads it, the analysis
+ * songate-automix-models.json (each model's name, file, size, SHA-256, format, the lowest Doli that reads it, the analysis
  * it was trained on, notes) and the model files themselves (automix::ModelFile's text). Downloaded under the same permission
  * as releases, checked by size and checksum, kept in config/gatefold-nx/models/.
  */
@@ -86,7 +86,7 @@ public:
     void install(int i, bool fresh, const std::string& backupRoot);
     /** Downloads models[i] into modelsDir (its checksum checked); justModel says so when it is in. */
     void installModel(int i, const std::string& modelsDir);
-    /** Whether this Songate can play a listed model; why not, when it cannot (a newer one is needed). */
+    /** Whether this Doli can play a listed model; why not, when it cannot (a newer one is needed). */
     static bool modelUsable(const UpdModel& m, std::string* why = nullptr);
     void cancel() { prog_.cancel = true; }
     /** Copies a backup back over config/gatefold-nx when Gatefold closes. */
@@ -119,9 +119,8 @@ public:
     static int compare(const std::string& a, const std::string& b);   // versions "1.2.0": <0, 0, >0
     static bool isBeta(const std::string& v);   // something after its numbers ("2.0.0 BETA")
     static std::string pretty(const std::string& v);   // the app's spelling: "2.0.0-beta.1" → "2.0.0 BETA 1"
-    /** A release as it was named: "Gatefold NX 1.1.0" before the rebranding, "Songate 2.0.0" from it on (the releases
-     *  before stay as they are: the user, 2026-10-29). */
-    static std::string releaseName(const std::string& v) { return (atoi(v.c_str()) < 2 ? "Gatefold NX " : "Songate ") + v; }   // (by its first number: 2.0.0 BETA is Songate's)
+    /** The fork's release name. */
+    static std::string releaseName(const std::string& v) { return "Doli " + v; }
     static std::string thisVersion();
     static int thisProtocol();   // GFBG_PROTOCOL: the background player this app talks to
 
@@ -129,7 +128,7 @@ public:
      *  swapped in, a fresh start or a restore is done. Returns the .nro to start next: this one, replaced; the one a release
      *  under the other name put in its own place (going back to 1.x, Gatefold NX: this one was removed); or empty. */
     static std::string finishPending(const std::string& configDir, const std::string& self);
-    /** The first launch after the rebranding (1.x was Gatefold NX): its .nro, and its overlay once Songate's is in, removed
+    /** The first launch after the rebranding (1.x was Gatefold NX): its .nro, and its overlay once Doli's is in, removed
      *  (the HOME menu's homebrew and Ultrahand would list both); the settings folder stays config/gatefold-nx. Not while an
      *  update waits (going back to 1.x puts them there on purpose). */
     static void cleanLegacy(const std::string& configDir, const std::string& self);

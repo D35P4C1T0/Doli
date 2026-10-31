@@ -31,14 +31,14 @@
 
 namespace {
 
-constexpr const char* kApi = "https://api.github.com/repos/AndryTheBeast/Songate/releases?per_page=30";
+constexpr const char* kApi = "https://api.github.com/repos/D35P4C1T0/Doli/releases?per_page=30";
 // Automix's models (the open-source model repository): its latest release's assets, by GitHub's own redirect (no API call)
 constexpr const char* kModels = "https://github.com/AndryTheBeast/songate-automix/releases/latest/download/";
 constexpr const char* kModelsManifest = "songate-automix-models.json";
-constexpr const char* kManifest = "songate-manifest.json";
+constexpr const char* kManifest = "doli-manifest.json";
 constexpr const char* kSysDir = "atmosphere/contents/4200000047464E58/";   // the background player's: the same ID as before
-constexpr const char* kNro = "switch/Songate/Songate.nro";
-constexpr const char* kOverlay = "switch/.overlays/Songate.ovl";
+constexpr const char* kNro = "switch/Doli/Doli.nro";
+constexpr const char* kOverlay = "switch/.overlays/Doli.ovl";
 // Before the rebranding (1.x, as Gatefold NX): where its files are, for going back to one, and cleared after (cleanLegacy)
 constexpr const char* kNroV1 = "switch/Gatefold/Gatefold.nro";
 constexpr const char* kOverlayV1 = "switch/.overlays/Gatefold.ovl";
@@ -573,7 +573,7 @@ bool zipRead(FILE* f, const ZipEntry& e, std::vector<uint8_t>& out, std::string&
         out.reserve(e.usize);
         Inflater inf{ comp.data(), comp.size(), 0, 0, 0, false, out };
         if (!inf.run()) { err = "Could not unpack " + e.name; return false; }
-    } else { err = "The zip packs " + e.name + " in a way Songate cannot read"; return false; }
+    } else { err = "The zip packs " + e.name + " in a way Doli cannot read"; return false; }
     if (out.size() != e.usize || crc32(out.data(), out.size()) != e.crc) { err = e.name + " did not unpack correctly"; return false; }
     return true;
 }
@@ -692,7 +692,7 @@ std::vector<UpdLog> logFromNotes(const std::string& body) {
     return out;
 }
 
-/** gatefold-manifest.json → the release's own fields. */
+/** doli-manifest.json → the release's own fields. */
 bool readManifest(const std::string& text, UpdRelease& r) {
     Json m;
     if (!parseJson(text, m) || m.kind != Json::Obj) return false;
@@ -763,7 +763,7 @@ std::vector<UpdRelease> readReleases(const std::string& api) {
     return out;
 }
 
-/** songate-automix-models.json → the models it lists (a newer format than this Songate knows: none). */
+/** songate-automix-models.json → the models it lists (a newer format than this Doli knows: none). */
 std::vector<UpdModel> readModels(const std::string& text) {
     std::vector<UpdModel> out;
     Json m;
@@ -919,14 +919,14 @@ void Updater::stop() {
 
 void Updater::readCache() {
     std::string api;
-    if (!readAll(dir_ + "/updates/releases.json", api)) return;
+    if (!readAll(dir_ + "/updates/doli-releases.json", api)) return;
     releases = readReleases(api);
     for (UpdRelease& r : releases) {
         std::string m;
-        if (readAll(dir_ + "/updates/manifest-" + r.tag + ".json", m)) readManifest(m, r);
+        if (readAll(dir_ + "/updates/doli-manifest-" + r.tag + ".json", m)) readManifest(m, r);
     }
     std::string when;
-    if (readAll(dir_ + "/updates/checked.txt", when)) checkedAt = atoll(when.c_str());
+    if (readAll(dir_ + "/updates/doli-checked.txt", when)) checkedAt = atoll(when.c_str());
     std::string mods;
     if (readAll(dir_ + "/updates/models.json", mods)) models = readModels(mods);
 }
@@ -1008,13 +1008,13 @@ void Updater::doCheck() {
     }
     if (err.empty()) {
         mkdirs(dir_ + "/updates");
-        writeAll(dir_ + "/updates/releases.json", api);
-        writeAll(dir_ + "/updates/checked.txt", std::to_string((long long)time(nullptr)));
+        writeAll(dir_ + "/updates/doli-releases.json", api);
+        writeAll(dir_ + "/updates/doli-checked.txt", std::to_string((long long)time(nullptr)));
         // Each release's manifest (a few KB; not counted by GitHub's hourly limit for the API)
         for (UpdRelease& r : list) {
             if (prog_.cancel) break;
             std::string m, e;
-            if (net::get(manifestUrl(r), m, e) && readManifest(m, r)) writeAll(dir_ + "/updates/manifest-" + r.tag + ".json", m);
+            if (net::get(manifestUrl(r), m, e) && readManifest(m, r)) writeAll(dir_ + "/updates/doli-manifest-" + r.tag + ".json", m);
         }
     }
     // Automix's models: the model repository's list (a missing one, as before it has a release, is no error)
@@ -1036,9 +1036,9 @@ void Updater::doCheck() {
 
 bool Updater::modelUsable(const UpdModel& m, std::string* why) {
     auto no = [&](const char* w) { if (why) *why = w; return false; };
-    if (m.format > automix::ModelFile::Format) return no("It needs a newer Songate: it is planned by logic this version does not have");
-    if (m.mixan > mixan::Version) return no("It needs a newer Songate: it was trained on a newer analysis");
-    if (compare(m.app, thisVersion()) > 0) return no(("It needs Songate " + m.app + " or newer").c_str());
+    if (m.format > automix::ModelFile::Format) return no("It needs a newer Doli: it is planned by logic this version does not have");
+    if (m.mixan > mixan::Version) return no("It needs a newer Doli: it was trained on a newer analysis");
+    if (compare(m.app, thisVersion()) > 0) return no(("It needs Doli " + m.app + " or newer").c_str());
     return true;
 }
 
@@ -1067,7 +1067,7 @@ void Updater::doInstallModel(UpdModel m, std::string modelsDir) {
         fail("The download does not match its checksum: try again");
         return;
     }
-    // it must be a model this Songate plans, as the list said
+    // it must be a model this Doli plans, as the list said
     std::string text, why;
     automix::ModelFile f;
     if (!readAll(tmp, text) || !f.parse(text, &why) || f.name != m.name) {
@@ -1092,7 +1092,7 @@ void Updater::doInstall(UpdRelease r, bool fresh, std::string backupRoot) {
     const std::string zip = up + "/" + (r.zipName.empty() ? "release.zip" : r.zipName);
     if (r.zipSha.size() != 64) { fail("This release has no checksum to check the download against: it was not installed"); return; }
     for (const Legacy& l : kLegacy)   // GitHub's digest and Gatefold's own table must agree
-        if (r.version == l.version && r.zipSha != l.sha) { fail("The release's checksum is not the one Songate knows: it was not installed"); return; }
+        if (r.version == l.version && r.zipSha != l.sha) { fail("The release's checksum is not the one Doli knows: it was not installed"); return; }
 
     // ---- 1. the zip (kept from an earlier try when it is already whole and right)
     phase_ = Downloading;
@@ -1121,7 +1121,7 @@ void Updater::doInstall(UpdRelease r, bool fresh, std::string backupRoot) {
     FILE* f = fopen(zip.c_str(), "rb");
     if (!f) { fail("Could not open the download"); return; }
     std::vector<ZipEntry> entries;
-    if (!zipList(f, entries)) { fclose(f); fail("The download is not a zip Songate can read"); return; }
+    if (!zipList(f, entries)) { fclose(f); fail("The download is not a zip Doli can read"); return; }
     std::vector<std::string> placed;   // the .gfnew files written, to take back on failure
     auto undo = [&] { for (const auto& p : placed) remove((p + ".gfnew").c_str()); };
     prog_.done = 0;
@@ -1159,7 +1159,7 @@ void Updater::doInstall(UpdRelease r, bool fresh, std::string backupRoot) {
         prog_.done++;
     }
     fclose(f);
-    if (!hasNro) { undo(); fail("The zip has no Songate.nro"); return; }
+    if (!hasNro) { undo(); fail("The zip has no Doli.nro"); return; }
 
     // ---- 3. the settings, copied first (never moved: a fresh start clears them only when Gatefold closes)
     phase_ = BackingUp;

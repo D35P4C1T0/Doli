@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Gatefold Live</title>
+<title>Doli Live</title>
 <style>
 :root {
   --bg: #0d0e12; --pad: #1a1c23; --key: #2a2d37; --key-on: #4a4f60; --ink: #e8e9ee; --dim: #8b8e9a;
@@ -83,7 +83,7 @@ canvas { display: block; background: #000; border-radius: 10px; max-width: 100%;
       <option value="60 2 75">30 fps · smaller</option>
       <option value="50 3 60">20 fps · data saver</option>
     </select>
-    <button id="restart" title="Start Gatefold again">Restart</button>
+    <button id="restart" title="Start Doli again">Restart</button>
     <button id="reset" title="Settings, playlists and analysis back to the start (your music is never touched)">Reset card</button>
     <button id="padBtn" title="Buttons on the screen, for a phone without a controller">Pad</button>
     <button id="full">Full screen</button>
@@ -234,7 +234,7 @@ function drawFrame() {
     stats.n = 0; stats.bytes = 0; stats.at = t; updateState();
   }
 }
-// ---------------------------------------------------------------- the keyboard (the console's applet: Gatefold waits for it)
+// ---------------------------------------------------------------- the keyboard (the console's applet: Doli waits for it)
 function keyboardOpen() { return $('kbd').classList.contains('show'); }
 function openKeyboard(head, guide, initial) {
   $('kbdHead').textContent = head; $('kbdText').placeholder = guide || ''; $('kbdText').value = initial;
@@ -257,7 +257,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const [x, y] = at(e); send(`d ${x} ${y}`); e.preventDefault();
 });
 canvas.addEventListener('pointermove', (e) => {
-  if (e.pointerId !== finger) {   // a mouse with no button held: Songate's pointer follows it
+  if (e.pointerId !== finger) {   // a mouse with no button held: Doli's pointer follows it
     if (finger === null && e.pointerType === 'mouse') { const [x, y] = at(e); send(`p ${x} ${y}`); }
     return;
   }
@@ -347,7 +347,7 @@ function pollPad() {
     for (const [n, i] of PAD) if (p.buttons[i] && p.buttons[i].pressed) b |= BIT[n];
     if (p.axes.length >= 2) st = [p.axes[0], -p.axes[1]];
   }
-  if (keyboardOpen()) b = 0;   // the controller is not Gatefold's while the keyboard is open
+  if (keyboardOpen()) b = 0;   // the controller is not Doli's while the keyboard is open
   if (b !== held.pad) { held.pad = b; sendButtons(); }
   if (Math.abs(st[0] - padStick[0]) > 0.02 || Math.abs(st[1] - padStick[1]) > 0.02) { padStick = st; sendStick(); }
 }
@@ -360,7 +360,7 @@ try {
   if (v && [...$('quality').options].some((o) => o.value === v)) $('quality').value = v;
 } catch (e) {}
 $('quality').addEventListener('change', () => { try { localStorage.setItem('gf-live-quality', $('quality').value); } catch (e) {} });
-$('restart').onclick = () => { send('!restart'); toast('Starting Gatefold again…'); };
+$('restart').onclick = () => { send('!restart'); toast('Starting Doli again…'); };
 $('reset').onclick = () => {
   if (confirm('Reset the test card? Settings, playlists and the analysis start over. Your music is never touched.')) { send('!reset'); toast('Resetting the card…'); }
 };

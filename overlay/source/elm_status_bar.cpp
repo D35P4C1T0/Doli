@@ -1455,7 +1455,7 @@ void StatusBar::CycleRepeat() {
 }
 
 void StatusBar::CycleShuffle() {
-    // An Automix playlist plays in its own order, joined by Automix: no Shuffle (Songate's own rule, and its words)
+    // An Automix playlist plays in its own order, joined by Automix: no Shuffle (Doli's own rule, and its words)
     if (this->m_shuffle == TuneShuffleMode_Off && gfQueueAutomix()) {
         if (tsl::notification) tsl::notification->showNow("An Automix playlist plays in its own order");
         return;

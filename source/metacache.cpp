@@ -465,7 +465,7 @@ void MetaCache::storeArt(int idx, const std::vector<uint8_t>& source, const ArtR
  * The cover reader's version, the map's first line ("#covers <n>"): a track remembered without a cover ("-") by an older
  * reader is tried again, its good covers kept. 2: FLAC pictures read by our own reader and images decoded by stb_image
  * when SDL_image cannot (coverio.cpp; the user's FLACs had none on the console, 2026-10-30). Raise it when the reader
- * finds covers it could not before. (Older Songates skip the line: it has no tab.)
+ * finds covers it could not before. (Older Dolis skip the line: it has no tab.)
  */
 constexpr int kCoverReader = 2;
 

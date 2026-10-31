@@ -278,8 +278,8 @@ void App::drawTrackList(float x, float y, float w, float h) {
 /** The first launch (the user, 2026-10-27: always asked): the card's Music folder offered, with the guided tour or without
  *  (the user, 2026-10-28), the picker under the card for another. No Cancel: Another folder, B or × leave the picker. */
 void App::welcomeCard(const std::string& found) {
-    confirm(ICON_FOLDER, "Welcome to Songate", "Where is your music?", "On this SD card: " + found, "Read your music from " + found + "?",
-            "Songate makes albums, artists and genres from the tags of the files in one folder and the folders inside it, "
+    confirm(ICON_FOLDER, "Welcome to Doli", "Where is your music?", "On this SD card: " + found, "Read your music from " + found + "?",
+            "Doli makes albums, artists and genres from the tags of the files in one folder and the folders inside it, "
             "whatever their layout. Settings › Library can change it later.",
             "Use it and take the tour", [this, found] {
                 tourAsk = false;
@@ -602,7 +602,7 @@ void App::drawPicker(float x, float y, float w, float h) {
         // Backups inside Gatefold's own settings folder would be copied into themselves, and cleared by a fresh start
         const std::string cfg = Store::Dir;
         if (clicked && folderFor == 4 && strncasecmp(path.c_str(), cfg.c_str(), cfg.size()) == 0 && (path.size() == cfg.size() || path[cfg.size()] == '/')) {
-            toast("Backups cannot go in Songate's own settings folder");
+            toast("Backups cannot go in Doli's own settings folder");
             clicked = false;
         }
         if (clicked) {

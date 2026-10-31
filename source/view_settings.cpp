@@ -492,10 +492,10 @@ void App::drawSettings(float x, float y, float w, float h) {
         // The background player (sysmodule): music on the HOME menu and in games, and its pause-for-apps.
         std::vector<Row> bgRows;
         const bool on = player.remote();
-        bgRows.push_back(Row{ "Keep playing outside Songate", "",
-                              on ? "Connected. The music carries on on the HOME menu, in games and after Songate closes"
+        bgRows.push_back(Row{ "Keep playing outside Doli", "",
+                              on ? "Connected. The music carries on on the HOME menu, in games and after Doli closes"
                               : store.background ? "Not installed: copy atmosphere/contents/4200000047464E58 to the SD card and restart"
-                                                 : "Off: the music stops when you leave Songate",
+                                                 : "Off: the music stops when you leave Doli",
                               40, [this](float rx, float cy) {
                                   if (toggle(uid("set.bg"), rx - 40, cy, store.background && player.remote())) setBackground(!player.remote());
                               } });
@@ -554,7 +554,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                 const bool stopped = store.stopThumbs;
                 Row covers = buttonRow("Covers for the overlay",
                                        stopped ? "Stopped. Only the track playing gets one until you resume"
-                                       : left > 0 ? "Being made in the background. Keep Songate open until it finishes; the card above Settings shows how far"
+                                       : left > 0 ? "Being made in the background. Keep Doli open until it finishes; the card above Settings shows how far"
                                                   : "Made for each queue sent to the player, or for the whole library here",
                                        "set.bgcovers", stopped ? ICON_PLAY : left > 0 ? ICON_X : ICON_REFRESH,
                                        stopped ? "Resume" : left > 0 ? "Stop" : "Make all", [this, stopped, left] {
@@ -566,15 +566,15 @@ void App::drawSettings(float x, float y, float w, float h) {
                 covers.value = std::to_string(bgs.coverCount) + " of " + std::to_string(lib.tracks.size());
                 bgRows.push_back(covers);
             }
-            bgRows.push_back(infoRow("Controls outside Gatefold", "The Songate overlay in Ultrahand's menu (L + D-pad down + R3 unless you changed it)"));
+            bgRows.push_back(infoRow("Controls outside Doli", "The Doli overlay in Ultrahand's menu (L + D-pad down + R3 unless you changed it)"));
         }
         // Measured: the count beside the label; Stop / Resume while the library is not all measured.
         const size_t measured = std::min(levels.count(), lib.tracks.size());
         const std::string measuredHint =
             store.levelMode == 0 ? "Starts once levelling is on, with the track playing first (Automix playlists' tracks: always)"
             : store.stopLevels       ? "Stopped. Only the track playing and the next ones are measured until you resume"
-            : levels.secondsPerTrack() > 0 ? "In the background while Songate is open, about " + oneDecimal(levels.secondsPerTrack()) + " s a track"
-                                     : "In the background while Songate is open, the track playing first";
+            : levels.secondsPerTrack() > 0 ? "In the background while Doli is open, about " + oneDecimal(levels.secondsPerTrack()) + " s a track"
+                                     : "In the background while Doli is open, the track playing first";
         Row measuredRow = store.levelMode && (store.stopLevels || measured < lib.tracks.size())
                               ? buttonRow("Measured", measuredHint, "set.lvlstop", store.stopLevels ? ICON_PLAY : ICON_X,
                                           store.stopLevels ? "Resume" : "Stop",
@@ -633,7 +633,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                                static const int mins[] = { 0, 15, 30, 45, 60, 90 };
                                setSleep(mins[i] * 60.0, i);
                            }),
-                    segRow("Then sleep the console", "When the timer ends with Songate open, a card counts down; Stay awake keeps it on",
+                    segRow("Then sleep the console", "When the timer ends with Doli open, a card counts down; Stay awake keeps it on",
                            "set.sleepcon", { "Off", "10 s", "30 s", "1 min" },
                            store.sleepConsole <= 0 ? 0 : store.sleepConsole <= 10 ? 1 : store.sleepConsole <= 30 ? 2 : 3,
                            [this](int i) {
@@ -641,7 +641,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                                store.sleepConsole = secs[i];
                                persistSoon(0.3f);
                            }),
-                    toggleRow("Keep the console awake", "While Songate is open the screen does not dim and the console does not sleep by "
+                    toggleRow("Keep the console awake", "While Doli is open the screen does not dim and the console does not sleep by "
                                                         "itself. After a sleep timer ends, it may again.",
                               "set.awake", store.keepAwake),
                     segRow("Dim the screen", store.keepAwake ? "After this long without input; any button brings it back"
@@ -683,7 +683,7 @@ void App::drawSettings(float x, float y, float w, float h) {
         const int own = store.eq.preset - GFEQ_PRESETS;   // ≥ 0: one of your saved presets
         const bool edited = own >= 0 && store.eq.edited;  // ... changed since it was saved
         const std::string preset = eqPresetName(store.eq.preset) + (edited ? " (edited)" : "");
-        Row onRow{ "Equalizer", "", "Shapes everything Songate and the background player play. A strong boost lowers the level a little so it "
+        Row onRow{ "Equalizer", "", "Shapes everything Doli and the background player play. A strong boost lowers the level a little so it "
                                    "does not distort: the preamp brings it back up. Also the equalizer button in the player bar and the Canvas: a press turns it on or off, a long press opens this page",
                    40, [this](float rx, float cy) {
                        if (toggle(uid("set.eqon"), rx - 40, cy, store.eq.on != 0)) {
@@ -891,7 +891,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                                                             { "Y", "Search" },           { "L  R", "Previous / next track" },
                                                             { "ZL  ZR", "Seek 10 seconds" }, { "−", "Canvas (full screen)" },
                                                             { "+", "Track menu: tags, cover, queue, delete" },
-                                                            { "HOME", "Leave Songate (close it from the HOME menu)" },
+                                                            { "HOME", "Leave Doli (close it from the HOME menu)" },
                                                             { "Right stick", "Scroll" } };
         for (auto& [k, l] : map) {
             const Font f{ css::Sm, Weight::SemiBold };
@@ -919,7 +919,7 @@ void App::drawSettings(float x, float y, float w, float h) {
     {
         struct F { const char* label; const char* dflt; std::string* field; };
         const F fs[5] = { { "Files opens in", "The top of the SD card", &store.filesDir },
-                          { "Importing playlists opens in", "The top of the SD card; then, while Songate is open, where you last picked one",
+                          { "Importing playlists opens in", "The top of the SD card; then, while Doli is open, where you last picked one",
                             &store.importDir },
                           { "Exporting playlists opens in", "The music folder's Playlists folder (or the music folder); then where you last exported",
                             &store.exportDir },
@@ -981,14 +981,14 @@ void App::drawSettings(float x, float y, float w, float h) {
                     buttonRow("Reset settings", "Every setting as it came, the background player's too. Your music folder, playlists, Liked, "
                                                 "tag edits, covers and saved presets stay",
                               "set.reset", ICON_REFRESH, "Reset", [this] { resetSettings(); }, true, resetW),
-                    buttonRow("Factory reset", "Erase what you choose, your playlists, Liked and statistics among them, or everything, as if Songate were newly installed. Your music files and backups stay",
+                    buttonRow("Factory reset", "Erase what you choose, your playlists, Liked and statistics among them, or everything, as if Doli were newly installed. Your music files and backups stay",
                               "set.factory", ICON_X, "Choose", [this] { openFactory(); }, true, resetW) } } } };
 
     // Updates (view_updates.cpp, updater.hpp): off until allowed; then releases with their changelogs, install or go back
     {
         std::vector<Card> cards;
         const std::string me = Updater::thisVersion();
-        Row onRow{ "Updates", "", store.updates ? "Songate goes online only when you check, install or go back (and when it starts, if you turn "
+        Row onRow{ "Updates", "", store.updates ? "Doli goes online only when you check, install or go back (and when it starts, if you turn "
                                                   "that on), to GitHub. Subsonic uses its separately configured server"
                                                 : "Off: no update checks or downloads. On, it can look for new versions on GitHub, "
                                                   "show what changed, install one, or go back to an earlier one",
@@ -998,7 +998,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                                store.updates = 0;
                                updater.cancel();
                                persistSoon(0.3f);
-                               toast("Updates off: Songate does not go online");
+                               toast("Updates off: Doli does not go online");
                            } else {
                                allowUpdates();   // asks first, saying what going online means
                            }
@@ -1007,7 +1007,7 @@ void App::drawSettings(float x, float y, float w, float h) {
         onRow.focus = uid("set.updon");
         std::vector<Row> top = { onRow };
         if (store.updates) {
-            top.push_back(toggleRow("Check when Songate starts", "A newer version is announced once, at the bottom of the screen", "set.updstart",
+            top.push_back(toggleRow("Check when Doli starts", "A newer version is announced once, at the bottom of the screen", "set.updstart",
                                     store.updateAtStart));
             std::string hint;
             if (updater.busy()) hint = updateStatus();
@@ -1051,7 +1051,7 @@ void App::drawSettings(float x, float y, float w, float h) {
         if (!ins.version.empty() && (ins.appPending || ins.bgChanged || ins.overlayPending || ins.fresh)) {
             std::string what = Updater::releaseName(ins.version) + (ins.appPending ? " starts when this one closes" : " is in");   // (its own name: 1.x was Gatefold NX)
             if (ins.bgChanged) what += "; the background player restarts with it (the music stops for a moment)";
-            if (ins.overlayPending) what += "; the overlay is replaced once Ultrahand lets go of it (close the Songate overlay)";
+            if (ins.overlayPending) what += "; the overlay is replaced once Ultrahand lets go of it (close the Doli overlay)";
             if (ins.fresh) what += "; your settings are cleared (they are in the backup)";
             Row fin = buttonRow("Restart to finish", what, "set.updfinish", ICON_REFRESH, "Restart now", [this] { finishUpdate(); });
             fin.value = ins.from + " to " + ins.version;
@@ -1094,10 +1094,10 @@ void App::drawSettings(float x, float y, float w, float h) {
             for (int i = 0; i < int(list.size()); i++) {
                 const ModelRow& r = list[size_t(i)];
                 const UpdModel* m = r.offer >= 0 ? &updater.models[size_t(r.offer)] : nullptr;
-                const std::string hint = r.builtin ? "Built in · comes with Songate"
+                const std::string hint = r.builtin ? "Built in · comes with Doli"
                                        : r.downloaded ? "Downloaded" + (m ? " · " + m->date : std::string())
                                        : m && Updater::modelUsable(*m) ? m->date + " · available · " + std::to_string(std::max<int64_t>(1, m->size / 1024)) + " KB"
-                                                                      : "Needs a newer Songate";
+                                                                      : "Needs a newer Doli";
                 const float bw = g.measure("Details", { css::Sm, Weight::SemiBold }) + 32;
                 Row row{ r.name, "", hint, bw, [this, i, bw, name = r.name](float rx, float cy) {
                             bool c = false;
@@ -1110,7 +1110,7 @@ void App::drawSettings(float x, float y, float w, float h) {
             }
             cards.push_back({ "Automix models", mods });
         }
-        cards.push_back({ "Backups", { infoRow("Before every install", "Songate backs up your settings first. They are put back from Settings › Reset") } });
+        cards.push_back({ "Backups", { infoRow("Before every install", "Doli backs up your settings first. They are put back from Settings › Reset") } });
         sections.push_back({ "Updates", ICON_DOWNLOAD, cards });
     }
     // Reset: the backups (made by hand, before each install, before a restore) are listed here and put back from here,
@@ -1124,7 +1124,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                                                                 " (Settings › Storage chooses where new ones go)") };
             const std::string pend = updater.restorePending();
             if (!pend.empty())
-                bk.push_back(buttonRow("A restore waits", "When Songate closes: " + pend, "set.updrestx", ICON_X, "Cancel", [this] {
+                bk.push_back(buttonRow("A restore waits", "When Doli closes: " + pend, "set.updrestx", ICON_X, "Cancel", [this] {
                     updater.cancelRestore();
                     toast("The restore is cancelled");
                 }));
@@ -1146,21 +1146,21 @@ void App::drawSettings(float x, float y, float w, float h) {
     }
     sections.push_back(resetSection);
 
-    // Support (the user, 2026-10-30: "Settings › Support"): a report from the console to Songate's reports on GitHub, through
+    // Support (the user, 2026-10-30: "Settings › Support"): a report from the console to Doli's reports on GitHub, through
     // a form (view_support.cpp, report.hpp); Atmosphère's crash reports; what a report says of this console. Just above About.
     {
         std::vector<Card> cards;
         std::vector<Row> rep;
         if (report::available()) {
             // off until allowed, as Updates (the user, 2026-10-30): the prompt says what is sent and where (allowReports)
-            Row onRow{ "Reports", "", store.reports ? "Sent only when you press Send, to Songate's private reports on GitHub, and nowhere else"
-                                                    : "Off: Songate sends nothing. On, you can report a bug or suggest a feature from here",
+            Row onRow{ "Reports", "", store.reports ? "Sent only when you press Send, to Doli's private reports on GitHub, and nowhere else"
+                                                    : "Off: Doli sends nothing. On, you can report a bug or suggest a feature from here",
                        40, [this](float rx, float cy) {
                            if (toggle(uid("set.repon"), rx - 40, cy, store.reports)) {
                                if (store.reports) {
                                    store.reports = false;
                                    persistSoon(0.3f);
-                                   toast("Reports off: Songate sends nothing");
+                                   toast("Reports off: Doli sends nothing");
                                } else {
                                    allowReports();
                                }
@@ -1171,7 +1171,7 @@ void App::drawSettings(float x, float y, float w, float h) {
             if (store.reports) {
                 rep.push_back(buttonRow("Report a bug", "A short form: what happened, and where", "set.repbug", ICON_BUG, "Report",
                                         [this] { openReport(0); }));
-                rep.push_back(buttonRow("Suggest a feature", "Something Songate could do, sent the same way", "set.repidea", PLI_BULB, "Suggest",
+                rep.push_back(buttonRow("Suggest a feature", "Something Doli could do, sent the same way", "set.repidea", PLI_BULB, "Suggest",
                                         [this] { openReport(1); }));
             }
         } else {
@@ -1201,7 +1201,7 @@ void App::drawSettings(float x, float y, float w, float h) {
             if (now.info.sampleRate > 0) { char r[24]; snprintf(r, sizeof r, " · %.1f kHz", now.info.sampleRate / 1000.0); playing += r; }
         }
         cards.push_back({ "Sent with a report",
-                          { infoRow("Songate", "", Updater::thisVersion()),
+                          { infoRow("Doli", "", Updater::thisVersion()),
                             infoRow("Firmware", "", read ? supportSys_.firmware : std::string("…")),
                             infoRow("Atmosphère", "", read ? supportSys_.atmosphere : std::string("…")),
                             infoRow("Background player", "", player.remote() ? "Connected" : "Not connected"),
@@ -1239,7 +1239,7 @@ void App::drawSettings(float x, float y, float w, float h) {
                           useSubsonic(!store.subsonic.enabled);
                       }),
             infoRow("Playback on demand", "Buffers one selected song before playing; Automix and loudness/mood analysis need SD-card tracks. The server must support MP3 streaming. "
-                    "Remote music plays while Songate is open; use Library → Rescan to refresh. Prefer HTTPS; HTTP is unencrypted.")
+                    "Remote music plays while Doli is open; use Library → Rescan to refresh. Prefer HTTPS; HTTP is unencrypted.")
         } } } });
     }
 
@@ -1285,23 +1285,25 @@ void App::drawSettings(float x, float y, float w, float h) {
             const Rgb note{ pal.accent.r + (pal.text.r - pal.accent.r) * 0.45f, pal.accent.g + (pal.text.g - pal.accent.g) * 0.45f, pal.accent.b + (pal.text.b - pal.accent.b) * 0.45f };   // (as the sidebar's mark)
             g.roundRect(bx, by + 8, 60, 60, 16, pal.accent, 0.12f);
             g.glow(bx + 30, by + 38, 30, pal.glow, 0.5f);
-            g.icon(ICON_BRAND_ARCH, bx + 30, by + 38, 34, pal.accent);
+            g.icon(ICON_BRAND_D, bx + 30, by + 38, 34, pal.accent);
             g.icon(ICON_BRAND_NOTE, bx + 30, by + 38, 34, note);
-            g.text("Songate for Nintendo Switch", { css::Xl, Weight::Bold }, bx + 76, by + 12, pal.text);
-            g.text("Version " GF_VERSION " · by AndryTheBeast", { css::Base }, bx + 76, by + 46, pal.text2);
+            g.text("Doli for Nintendo Switch", { css::Xl, Weight::Bold }, bx + 76, by + 12, pal.text);
+            g.text("Version " GF_VERSION " · by D35P4C1T0", { css::Base }, bx + 76, by + 46, pal.text2);
         };
         sections.push_back(
             { "About", ICON_INFO,
               { { "", { head } },
-                { "Tour", { buttonRow("Take the tour", "Every part of Songate on its own screens, with examples: Basic, Advanced or Complete",
+                { "Music", { infoRow("Native music player", "Play music from your SD card or a remote Subsonic server") } },
+                { "Tour", { buttonRow("Take the tour", "Every part of Doli on its own screens, with examples: Basic, Advanced or Complete",
                                       "set.tour", ICON_SPARKLE, "Start", [this] { startTour(); }) } },
                 { "Credits",
                   // the project it began as (the user, 2026-10-29: mentioned only as that, respectfully and factually; the
                   // licence requires the notice: LICENSE-gatefold)
-                  { infoRow("Gatefold", "Songate began as a recreation of Gatefold, DEVIROYrus's interface for foobar2000. Its palette "
-                                        "algorithm, icons, app icon and typeface come from that project. © Gatefold contributors, MIT licence"),
+                  { infoRow("Songate", "Doli is a fork of Songate by AndryTheBeast. The original app, background player and overlay are his work"),
+                    infoRow("Gatefold", "Songate began as a recreation of Gatefold, DEVIROYrus's interface for foobar2000. Its palette "
+                                        "algorithm, interface icons and typeface come from that project. © Gatefold contributors, MIT licence"),
                     infoRow("Inter", "The typeface. © The Inter Project Authors, SIL Open Font Licence"),
-                    infoRow("FFmpeg", "Decoding in Songate's own player: AAC, ALAC, FLAC, MP3, Ogg Vorbis, Opus and WAV. LGPL 2.1"),
+                    infoRow("FFmpeg", "Decoding in Doli's own player: AAC, ALAC, FLAC, MP3, Ogg Vorbis, Opus and WAV. LGPL 2.1"),
                     infoRow("SDL 2", "Graphics, sound, fonts and images: SDL, SDL_mixer, SDL_ttf, SDL_image. zlib licence"),
                     infoRow("libFLAC, mpg123, Opus, Tremor", "SDL_mixer's decoders, for a file FFmpeg cannot open. BSD and LGPL licences"),
                     infoRow("libcurl and zlib", "Updates and Subsonic: connections over the console's own secure connection. curl and zlib licences"),
@@ -1342,7 +1344,7 @@ void App::drawSettings(float x, float y, float w, float h) {
     // ------------------------------------------------------------ left column
     const float lx = x + 24, lw = 214;
     float cy = y + 24;
-    kicker("Songate", lx, cy + 6, pal.text3, 0.14f);
+    kicker("Doli", lx, cy + 6, pal.text3, 0.14f);
     cy += 16;
     g.text("Settings", { css::Xxl, Weight::ExtraBold }, lx - 1, cy, pal.text);
     cy += 50;

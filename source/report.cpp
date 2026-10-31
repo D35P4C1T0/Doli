@@ -1,5 +1,5 @@
 /*
- * Songate · report.cpp
+ * Doli · report.cpp
  * See report.hpp. report_key.inc (git-ignored; tools/report-key.py makes it from report.key) holds the header line
  * "Authorization: Bearer <token>" scrambled: each byte XORed with a xorshift stream whose seed is four numbers there and one
  * here, then stored at a shuffled place among random bytes. It is put back together on the stack for one request only.

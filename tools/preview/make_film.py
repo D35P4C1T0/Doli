@@ -37,7 +37,7 @@ SCENES = [
     # take, from, to (seconds of the take), speed (the menus move a little quicker; the music does not); the kicker, title, words;
     # cam: (seconds of the take, zoom, x, y); caps: (from, to, text), in seconds of the take from its start
     dict(kind='intro', len=6.0),
-    dict(take=1, t0=11.0, t1=22.3, speed=1, kicker='Now playing', title='Every album,\nits own colours', sub='Songate takes its whole interface from the cover.',
+    dict(take=1, t0=11.0, t1=22.3, speed=1, kicker='Now playing', title='Every album,\nits own colours', sub='Doli takes its whole interface from the cover.',
          cam=[(0, 1, .5, .5), (3.0, 1.45, .74, .68), (9.4, 1, .5, .5)],
          caps=[(3.3, 6.2, 'Synced lyrics that follow the music'), (6.7, 9.4, 'The palette, measured from the cover')]),
     dict(take=1, t0=22.3, t1=34.6, speed=1, kicker='Canvas', title='The whole screen\nfor the music', sub='Three layouts, one button away.',
@@ -51,9 +51,9 @@ SCENES = [
     dict(take=1, t0=91.6, t1=111.2, speed=1.35, kicker='Settings', title='Make it\nyours', sub='Sound, looks and controls.',
          cam=[(0, 1, .5, .5)], caps=[(4.4, 8.2, 'A ten-band equalizer'), (8.8, 12, 'A visualizer you can tune'), (12.2, 14.6, 'Updates, only if you turn them on'),
                                      (14.8, 17.6, 'Report a bug from the console')]),
-    dict(take=1, t0=111.6, t1=122.0, speed=1, kicker='Guided tour', title='Songate shows\nyou around', sub='On its own screens, with your music.',
+    dict(take=1, t0=111.6, t1=122.0, speed=1, kicker='Guided tour', title='Doli shows\nyou around', sub='On its own screens, with your music.',
          cam=[(0, 1, .5, .5)], caps=[(3.2, 10, 'Basic, Advanced or Complete')]),
-    dict(take=2, t0=6.4, t1=10.4, speed=1, kicker='Automix', title='Your songs,\nlike a DJ set', sub='Songate listens, orders and joins them.', cam=[(0, 1, .5, .5)], caps=[]),
+    dict(take=2, t0=6.4, t1=10.4, speed=1, kicker='Automix', title='Your songs,\nlike a DJ set', sub='Doli listens, orders and joins them.', cam=[(0, 1, .5, .5)], caps=[]),
     dict(take=2, t0=49.0, t1=65.0, speed=1, cam=[(0, 1, .5, .5)], caps=[(.7, 3.4, 'It reads each song: tempo, key, bars and bass'), (3.6, 5.7, 'Then plans the join')]),
     dict(kind='overlay', len=10.0),
     dict(kind='end', len=5.6),
@@ -348,9 +348,9 @@ class Word:
     def __init__(self, px, pad=90):
         f = ImageFont.truetype(str(PROJECT / 'tools' / 'brand' / 'Fraunces.ttf'), px * 3)
         f.set_variation_by_axes([36, 900, 100, 1])   # opsz, wght, SOFT, WONK (tools/brand/wordmark.py)
-        l, t, r, b = f.getbbox('Songate')
+        l, t, r, b = f.getbbox('Doli')
         big = Image.new('L', (r - l + 60, b - t + 60), 0)
-        ImageDraw.Draw(big).text((30 - l, 30 - t), 'Songate', font=f, fill=255)
+        ImageDraw.Draw(big).text((30 - l, 30 - t), 'Doli', font=f, fill=255)
         big = big.crop(big.getbbox())
         word = big.resize((big.width // 3, big.height // 3), Image.LANCZOS)
         self.w, self.h, self.pad = word.width, word.height, pad
@@ -361,7 +361,7 @@ class Word:
         self.glow = glow / glow.max()
         tight = np.asarray(canvas.filter(ImageFilter.GaussianBlur(px * .05)), dtype=np.float32) / 255
         self.tight = tight / tight.max()
-        # the gradient across: a → b → c, its middle stop at 0.45: "Song" in the accents, "gate" turning light
+        # the gradient across: a → b → c, its middle stop at 0.45: the name in the accents, turning light
         a, b, c = mix(ACCENT, TXT, .12), mix(ACCENT2, TXT, .2), mix(ACCENT2, TXT, .78)
         ts = (np.arange(self.a.shape[1]) - pad) / self.w
         self.u = ts
@@ -434,7 +434,7 @@ def overlay_scene(t, bg, shots, length):
             y += 50
             d += .1
         y += 12
-        for l in ('The music keeps going after you', 'close Songate. The overlay runs', 'it without leaving your game.'):
+        for l in ('The music keeps going after you', 'close Doli. The overlay runs', 'it without leaving your game.'):
             reveal(fr, line(l, F_SUB, TEXT2), 60, y, (t - d) / .9, leave)
             y += 31
             d += .06

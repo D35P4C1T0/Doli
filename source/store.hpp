@@ -40,6 +40,7 @@ struct Session {
 };
 
 struct Store {
+    // Keep the shared legacy directory so app and background-player data survive upgrades to Doli.
     static constexpr const char* Dir = "sdmc:/config/gatefold-nx";
 
     SubsonicConfig subsonic;

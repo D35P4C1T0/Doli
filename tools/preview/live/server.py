@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Gatefold NX live test environment: the PC preview, in real time, streamed to a web page.
+"""Doli live test environment: the PC preview, in real time, streamed to a web page.
 
     python tools/preview/live/server.py            (or preview_start "gatefold-live" from .claude/launch.json)
 
-Runs tools/preview/out/gatefold-preview.exe (copied to out-live/run, so a new build can be made while it runs) with
+Runs tools/preview/out/doli-preview.exe (copied to out-live/run, so a new build can be made while it runs) with
 GF_STREAM, on a card of its own (out-live/card: sdmc/Music is a junction to the music folder, GF_PROTECT keeps it
 read-only; the config is the card's own). The page (index.html) shows its frames, plays its sound and sends back
 touches, the buttons and the stick. A new build in tools/preview/out restarts it by itself.
@@ -60,7 +60,7 @@ def prepare_card(reset=False):
     CFG.mkdir(parents=True, exist_ok=True)
     shutil.copy(HERE / 'card-settings.txt', CFG / 'settings.txt')
     folder = MUSIC / MIX
-    if folder.is_dir():   # an Automix playlist to try joins with, ordered by Gatefold
+    if folder.is_dir():   # an Automix playlist to try joins with, ordered by Doli
         name = MIX + ' Mix'
         tracks = sorted(p.name for p in folder.iterdir() if p.suffix.lower() in AUDIO_EXT)
         (CFG / 'playlists.txt').write_text(name + '\t\n', encoding='utf-8', newline='\n')
@@ -84,7 +84,7 @@ class App:
         self.wanted = True          # restart it when it closes by itself
 
     def stamp(self):
-        exe = OUT / 'gatefold-preview.exe'
+        exe = OUT / 'doli-preview.exe'
         st = exe.stat()
         return st.st_mtime, st.st_size
 
@@ -96,7 +96,7 @@ class App:
             d = RUN / f.name
             if not d.exists() or d.stat().st_size != f.stat().st_size or d.stat().st_mtime < f.stat().st_mtime:
                 shutil.copy2(f, d)
-        exe = OUT / 'gatefold-preview.exe'
+        exe = OUT / 'doli-preview.exe'
         shutil.copy2(exe, RUN / exe.name)
         self.built_at = exe.stat().st_mtime
         md5 = hashlib.md5((RUN / exe.name).read_bytes()).hexdigest()[:8]
@@ -115,7 +115,7 @@ class App:
         out = open(LIVE / 'app-log.txt', 'ab')
         out.write(f'\n==== {time.ctime()} build {self.build}\n'.encode())
         out.flush()
-        self.proc = await asyncio.create_subprocess_exec(str(RUN / 'gatefold-preview.exe'), cwd=str(RUN), env=env,
+        self.proc = await asyncio.create_subprocess_exec(str(RUN / 'doli-preview.exe'), cwd=str(RUN), env=env,
                                                          stdout=out, stderr=subprocess.STDOUT)
         self.wanted = True
         self.state = 'starting'
@@ -404,11 +404,11 @@ async def main():
     TOKEN = tok.read_text().strip()
     if not MUSIC.is_dir():
         sys.exit(f'no music folder at {MUSIC} (set GF_LIVE_MUSIC)')
-    if not (OUT / 'gatefold-preview.exe').exists():
+    if not (OUT / 'doli-preview.exe').exists():
         sys.exit('build the preview first: FFMPEG=tools/preview/deps/ffmpeg bash tools/preview/build.sh tools/preview/deps/sdl')
     await asyncio.start_server(app.connected, '127.0.0.1', APP_PORT)
     await asyncio.start_server(http, '0.0.0.0', PORT)
-    log(f'Gatefold live on http://localhost:{PORT}/')
+    log(f'Doli live on http://localhost:{PORT}/')
     for a in lan_addresses():
         log(f'  from another device: http://{a}:{PORT}/?k={TOKEN}')
     await app.start()

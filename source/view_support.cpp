@@ -1,7 +1,7 @@
 /*
- * Songate · view_support.cpp
+ * Doli · view_support.cpp
  * Settings › Support's sheets (the user, 2026-10-30): the report's form, filled with the options the app gives, sent from the
- * console to Songate's reports on GitHub (report.hpp: a repository of its own); and Atmosphère's crash reports. The card's
+ * console to Doli's reports on GitHub (report.hpp: a repository of its own); and Atmosphère's crash reports. The card's
  * reads (the crash reports, the console's versions) and the sending run on workers; nothing of it on the main thread.
  */
 #include <algorithm>
@@ -30,12 +30,12 @@ std::string thousands(size_t n) {
 /** Reports are off until allowed here: what a report sends, where it goes and who can see it, said before anything is sent
  *  (the user, 2026-10-30: "a toggle like Updates for Support, with the privacy prompt too"). */
 void App::allowReports() {
-    confirm(ICON_HELP, "Support", "Send reports from Songate?", "GitHub · AndryTheBeast/songate-reports, a private repository",
-            "Allow Songate to send reports?",
-            "Songate sends a report only when you fill in the form and press Send, to a private repository on GitHub that only "
-            "Songate's developer can read. With what you write it sends Songate's version, the firmware and Atmosphère's, docked "
+    confirm(ICON_HELP, "Support", "Send reports from Doli?", "GitHub · the report repository configured for this build",
+            "Allow Doli to send reports?",
+            "Doli sends a report only when you fill in the form and press Send, to a private repository on GitHub that only "
+            "Doli's developer can read. With what you write it sends Doli's version, the firmware and Atmosphère's, docked "
             "or handheld, the background player, the playing file's format, how many tracks you have, and, if you leave them on, "
-            "Atmosphère's crash reports and Songate's last messages. Never your files' names. GitHub sees your console's IP "
+            "Atmosphère's crash reports and Doli's last messages. Never your files' names. GitHub sees your console's IP "
             "address. You can turn this off at any time.",
             "Allow", [this] {
                 store.reports = true;
@@ -98,7 +98,7 @@ std::string App::reportBody() const {
     b += "\n\n### " + std::string(bug ? "What happened" : "The idea") + "\n\n" + (sheet.repWhat.empty() ? "(not given)" : sheet.repWhat) + "\n";
     if (bug) b += "\n### Steps\n\n" + (sheet.repSteps.empty() ? std::string("(not given)") : sheet.repSteps) + "\n";
     // the app's part: nothing of the user's files but the playing one's format
-    b += "\n### This console\n\n| | |\n|---|---|\n| Songate | " + Updater::thisVersion() + " · protocol " + std::to_string(Updater::thisProtocol()) + " |\n";
+    b += "\n### This console\n\n| | |\n|---|---|\n| Doli | " + Updater::thisVersion() + " · protocol " + std::to_string(Updater::thisProtocol()) + " |\n";
     b += "{{SYSTEM}}";
     b += "| Background player | " + std::string(player.remote() ? "connected" : "not connected") + " |\n";
     if (now.track >= 0 && !now.info.codec.empty()) {
@@ -112,11 +112,11 @@ std::string App::reportBody() const {
     b += "{{CRASHES}}";
     if (sheet.repLog && !logLines_.empty()) {
         const size_t n = std::min<size_t>(40, logLines_.size());
-        b += "\n### Songate's log (" + (n == 1 ? std::string("its last message") : "the last " + std::to_string(n) + " messages") + ")\n\n```\n";
+        b += "\n### Doli's log (" + (n == 1 ? std::string("its last message") : "the last " + std::to_string(n) + " messages") + ")\n\n```\n";
         for (size_t i = logLines_.size() > 40 ? logLines_.size() - 40 : 0; i < logLines_.size(); i++) b += logLines_[i] + "\n";
         b += "```\n";
     }
-    b += "\n*Sent from Songate's Settings › Support.*\n";
+    b += "\n*Sent from Doli's Settings › Support.*\n";
     return b;
 }
 
@@ -125,7 +125,7 @@ void App::reportHeader(const char*& icon, std::string& kick, std::string& title,
     icon = bug ? ICON_BUG : PLI_BULB;
     kick = "Support";
     title = bug ? "Report a bug" : "Suggest a feature";
-    sub = report::available() ? "Sent to Songate's reports on GitHub, with what is listed below" : "This build cannot send reports";
+    sub = report::available() ? "Sent to Doli's reports on GitHub, with what is listed below" : "This build cannot send reports";
 }
 
 void App::reportRows(std::vector<SheetRow>& rows) {
@@ -163,7 +163,7 @@ void App::reportRows(std::vector<SheetRow>& rows) {
         often.h = 56;
         rows.push_back(often);
     }
-    rows.push_back({ Row::Group, nullptr, "Which part of Songate" });
+    rows.push_back({ Row::Group, nullptr, "Which part of Doli" });
     rows.back().h = 38;
     for (int a = 0; a < kAreaCount; a++) {
         rows.push_back({ Row::Choice, nullptr, kAreas[a], "", "", [this, a] { sheet.repArea = a; } });
@@ -183,12 +183,12 @@ void App::reportRows(std::vector<SheetRow>& rows) {
     if (!recent) crashes.act = nullptr;
     crashes.h = 62;
     rows.push_back(crashes);
-    Row log{ Row::Toggle, nullptr, "Songate's log", "Its last 40 messages, the ones shown at the bottom of the screen", "",
+    Row log{ Row::Toggle, nullptr, "Doli's log", "Its last 40 messages, the ones shown at the bottom of the screen", "",
              [this] { sheet.repLog = !sheet.repLog; } };
     log.on = sheet.repLog;
     log.h = 62;
     rows.push_back(log);
-    Row text{ Row::Text, ICON_INFO, "", "Always: Songate's version, the firmware and Atmosphère's, the background player, the playing file's format "
+    Row text{ Row::Text, ICON_INFO, "", "Always: Doli's version, the firmware and Atmosphère's, the background player, the playing file's format "
                                        "and how many tracks you have. Never your files' names." };
     text.h = 2 * 19.f + 14;
     rows.push_back(text);
@@ -206,7 +206,7 @@ void App::reportFooter(float x, float w, float fy) {
         if (!report::available()) toast("This build cannot send reports");
         else if (!store.reports) { closeSheet(); allowReports(); }   // (switched off meanwhile: asked again)
         else if (sheet.repTitle.empty()) toast("Add a title first");
-        else if (sheet.repArea < 0) toast("Choose the part of Songate it is about");
+        else if (sheet.repArea < 0) toast("Choose the part of Doli it is about");
         else if (wait > 0) toast("One report every five minutes: try again in " + std::to_string(int(wait / 60) + 1) + " min");
         else {
             const bool bug = sheet.repKind == 0;

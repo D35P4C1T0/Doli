@@ -1,10 +1,10 @@
-"""songate-automix-models.json: the list of Automix models Songate downloads (updater.hpp, UpdModel).
+"""songate-automix-models.json: the list of Automix models Doli downloads (updater.hpp, UpdModel).
 
     python tools/automix/mkmodels.py <out folder> <model file>... [--notes <model file>=<notes.txt>]...
 
-Each model file (automix::ModelFile's text) is read for its name, format, lowest Songate and analysis; its size and SHA-256
+Each model file (automix::ModelFile's text) is read for its name, format, lowest Doli and analysis; its size and SHA-256
 are measured; it is copied beside the manifest. Attach the manifest and every model file to a release of the model
-repository: Songate reads them from its latest release (releases/latest/download/<name>). A model, once published, never
+repository: Doli reads them from its latest release (releases/latest/download/<name>). A model, once published, never
 changes: a new one gets a new name and file.
 """
 import argparse, datetime, hashlib, json, os, shutil, sys
@@ -53,7 +53,7 @@ def main():
             'format': fmt, 'app': f.get('app', '2.0.0-beta'), 'mixan': int(f.get('mixan', '0')), 'date': a.date,
             'notes': notes.get(os.path.abspath(path), []),
         })
-        print(f"{f['name']}: {name}, {len(data)} bytes, format {fmt}, Songate {f.get('app', '2.0.0-beta')}+")
+        print(f"{f['name']}: {name}, {len(data)} bytes, format {fmt}, Doli {f.get('app', '2.0.0-beta')}+")
     with open(os.path.join(a.out, 'songate-automix-models.json'), 'w', encoding='utf-8', newline='\n') as fp:
         json.dump(out, fp, indent=2, ensure_ascii=False)
         fp.write('\n')

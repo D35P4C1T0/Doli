@@ -46,9 +46,9 @@ class BrowserGui final : public SysTuneGui {
 };
 
 // =============================================================================
-// Browse (Songate, 2026-10-30): Folders, as Browse always was, and Playlists: Songate's own, by kind (Normal: Liked, yours
+// Browse (Doli, 2026-10-30): Folders, as Browse always was, and Playlists: Doli's own, by kind (Normal: Liked, yours
 // and folder playlists; Smart; Mood; Automix), each listing its tracks with a folder's actions. Read from the one file
-// Songate writes for the background player (GFBG_PLAYLISTS): its header for the lists, one pass for a playlist's tracks.
+// Doli writes for the background player (GFBG_PLAYLISTS): its header for the lists, one pass for a playlist's tracks.
 // The stack: [Settings, Browse, Playlists, a kind, a playlist]; left goes to the player, which comes back to the same page.
 // =============================================================================
 

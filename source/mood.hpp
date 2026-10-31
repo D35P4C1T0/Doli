@@ -1,5 +1,5 @@
 /*
- * Songate · mood.hpp
+ * Doli · mood.hpp
  * Mood playlists: the library sorted into moods by how each track sounds (mixan::Mood, measured with Automix's analysis).
  * Our own, from features we measure (the PC's Gatefold uses a neural network, Essentia's, licensed non-commercial; its radio
  * uses features like these, vibe.js): Thayer's two axes, as most feature-based mood work does, each feature a rank within

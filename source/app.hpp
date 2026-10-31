@@ -1034,7 +1034,7 @@ private:
 
     // ================= view_updates.cpp: Settings → Updates (updater.hpp): releases, changelogs, install, roll back, backups
 public:
-    std::string selfPath = "sdmc:/switch/Songate/Songate.nro";   // the running .nro (main's argv[0])
+    std::string selfPath = "sdmc:/switch/Doli/Doli.nro";   // the running .nro (main's argv[0])
 private:
     Updater updater;
     bool relaunch = false;              // Gatefold closes and starts again (the new .nro, swapped in at shutdown)

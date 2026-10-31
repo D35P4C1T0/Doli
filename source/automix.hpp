@@ -159,12 +159,12 @@ Plan planTuned(const mixan::Info* a, double dur, const mixan::Info* b, double fa
 
 /**
  * A model as data (the user, 2026-10-30: "sometimes we need to update the model but have no new features"): its numbers in
- * a file, planned by the planner of its format, so a new model can come over the air without a new Songate. Format 1 is the
+ * a file, planned by the planner of its format, so a new model can come over the air without a new Doli. Format 1 is the
  * tunable planner as it stood when V1.2.0 was frozen from round 5 (automix.cpp `file1`, a copy: it never changes), with every
  * Tune number and the kinds of join the gate plays on. A model that needs new logic (a new kind of join) needs a new format,
  * and one that needs a new analysis a higher mixan Version: both come with an app update. The file is text, a "key value"
  * line each ('#' starts a comment), its first line "songate-automix-model <format>":
- *   name Automix V1.2.0 · app 2.0.0 (the lowest Songate that reads it) · mixan 4 (the analysis it was trained on) ·
+ *   name Automix V1.2.0 · app 2.0.0 (the lowest Doli that reads it) · mixan 4 (the analysis it was trained on) ·
  *   order 1.0.0 (whose playlist order it uses) · gateOn drop,structure (or beat, or none) · then each Tune number by name.
  */
 struct ModelFile {

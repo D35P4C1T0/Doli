@@ -22,7 +22,7 @@ automix::Model App::mixModel() const {
     return automix::Latest;   // a release: the newest (a choice saved by a dev build is ignored)
 }
 
-/** The downloaded models: each .model file in config/gatefold-nx/models this Songate can plan (a few small files: at launch and
+/** The downloaded models: each .model file in config/gatefold-nx/models this Doli can plan (a few small files: at launch and
  *  after a download). */
 void App::loadModelFiles() {
     modelFiles.clear();
@@ -227,7 +227,7 @@ void App::drawAutomixPicker() {
     g.roundRect(ix, Y + pad, 40, 40, 10, pal.accent, 0.14f);
     g.icon(ICON_SPARKLE, ix + 20, Y + pad + 20, 20, pal.accentInk);   // the Automix playlists' icon
     kicker("New Automix playlist", ix + 54, Y + pad + 7, pal.accentInk);
-    g.text("Pick the songs; Songate orders them for the best joins", { css::Lg, Weight::Bold }, ix + 54, Y + pad + 16, pal.text, 1, Align::Left,
+    g.text("Pick the songs; Doli orders them for the best joins", { css::Lg, Weight::Bold }, ix + 54, Y + pad + 16, pal.text, 1, Align::Left,
            int(iw - 54 - 260));
     hint(uid("ap.x"), "Close");
     if (iconButton(uid("ap.x"), ICON_X, X + W - pad - 17, Y + pad + 20)) { closeAutomixPicker(); return; }

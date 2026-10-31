@@ -1,18 +1,17 @@
-"""The name for the README: Songate's magical letters (Gfx::wordmark: the gradient, the glow, a shimmer, sparkles) as PNGs with
-a transparent background, one for each of GitHub's themes (the pale end of the app's gradient is lost on white), and the
-tour video's poster.
+"""The name for the README: Doli's magical letters (Gfx::wordmark: the gradient, the glow, a shimmer, sparkles) as PNGs with
+a transparent background, one for each of GitHub's themes (the pale end of the app's gradient is lost on white).
 
-    python tools/brand/wordmark-png.py          (needs Pillow, numpy; writes docs/wordmark-dark.png, wordmark-light.png, tour-poster.webp)
+    python tools/brand/wordmark-png.py          (needs Pillow, numpy; writes docs/wordmark-dark.png, wordmark-light.png)
 """
 import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / 'tools' / 'preview'))
-from make_film import ACCENT, ACCENT2, F_CAP, GLOW, TXT, Word, line, mix   # noqa: E402
+from make_film import ACCENT, ACCENT2, GLOW, TXT, Word, mix   # noqa: E402
 
 PX = 300   # for sharp letters at the 620 px wide they are shown
 
@@ -47,29 +46,10 @@ def wordmark(word, stops, glow_col, glow_a, shine, sparkle_col):
     return pic.crop(pic.getchannel('A').point(lambda v: 255 if v > 6 else 0).getbbox())
 
 
-def poster():
-    W, H = 1280, 720
-    im = Image.open(ROOT / 'docs' / 'screenshots' / 'now-playing.webp').convert('RGB')
-    im = Image.blend(im, Image.new('RGB', (W, H), (12, 8, 10)), .42)
-    S = 4
-    b = Image.new('RGBA', (140 * S, 140 * S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(b)
-    d.ellipse((0, 0, 140 * S - 1, 140 * S - 1), fill=(255, 255, 255, 235))
-    d.polygon([(55 * S, 42 * S), (55 * S, 98 * S), (102 * S, 70 * S)], fill=tuple(ACCENT) + (255,))
-    b = b.resize((140, 140), Image.LANCZOS)
-    shadow = Image.new('L', (W, H), 0)
-    shadow.paste(b.getchannel('A'), (570, 278))
-    im.paste((0, 0, 0), (0, 0), shadow.filter(ImageFilter.GaussianBlur(24)).point(lambda v: int(v * .5)))
-    im.paste(b, (570, 278), b)
-    t = line('Watch the tour · 2 min', F_CAP, (255, 255, 255))
-    im.paste(t, ((W - t.width) // 2, 438), t)
-    im.save(ROOT / 'docs' / 'tour-poster.webp', quality=88, method=6)
-
 
 word = Word(PX, pad=int(PX * .34))
 dark = wordmark(word, (mix(ACCENT, TXT, .12), mix(ACCENT2, TXT, .2), mix(ACCENT2, TXT, .78)), GLOW, .5, .72, (255, 244, 236))
 light = wordmark(word, ((226, 62, 47), (208, 96, 44), (150, 74, 40)), ACCENT, .34, -1, (240, 150, 96))
 dark.save(ROOT / 'docs' / 'wordmark-dark.png', optimize=True)
 light.save(ROOT / 'docs' / 'wordmark-light.png', optimize=True)
-poster()
 print(dark.size, light.size)

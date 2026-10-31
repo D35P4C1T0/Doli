@@ -1,5 +1,5 @@
 /*
- * Songate · report.hpp
+ * Doli · report.hpp
  * Settings › Support: a bug report or an idea, sent from the console to a GitHub repository of its own (report_key.inc:
  * the repository and a fine-grained token that can only open issues there, scrambled; git-ignored, made by
  * tools/report-key.py from report.key). Without it the build cannot send (Support says so).
@@ -20,7 +20,7 @@ namespace report {
 /** Was this build given a key (report_key.inc)? */
 bool available();
 
-/** The console as the report gives it: Songate's version, the firmware, Atmosphère, docked or not. */
+/** The console as the report gives it: Doli's version, the firmware, Atmosphère, docked or not. */
 struct System {
     std::string firmware, atmosphere;
     bool docked = false;

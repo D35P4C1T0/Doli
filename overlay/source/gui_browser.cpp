@@ -7,7 +7,7 @@
 #include "symbol.hpp"
 #include "tune.h"
 #include "get_funcs.hpp"    // ult::isDirectory, ult::DirCloser
-#include "pl_symbols.hpp"   // Songate's playlist icons
+#include "pl_symbols.hpp"   // Doli's playlist icons
 #include "tune_gfbg.hpp"
 
 #include <algorithm>
@@ -769,12 +769,12 @@ void BrowserGui::addAllToPlaylist(const std::string &path) {
 }
 
 // =============================================================================
-// Browse › Folders / Playlists (Songate, 2026-10-30)
+// Browse › Folders / Playlists (Doli, 2026-10-30)
 // =============================================================================
 
 namespace {
 
-    /* A list item with one of Songate's icons before its text (pl_symbols.hpp: the app's own, rasterised): the item is
+    /* A list item with one of Doli's icons before its text (pl_symbols.hpp: the app's own, rasterised): the item is
        drawn 30 px to the right, the icon in the room it leaves; its value stays at the right edge. */
     class IconListItem final : public tsl::elm::ListItem {
         const AlphaSymbol *m_icon;
@@ -826,7 +826,7 @@ namespace {
         return play_ctx::source() == play_ctx::Source::Folder && !playingPlaylist() && play_ctx::currentPath()[0] != '\0';
     }
 
-    /* The four kinds of Browse › Playlists, as Songate's playlists are: Normal (Liked, yours, a folder's), Smart, Mood,
+    /* The four kinds of Browse › Playlists, as Doli's playlists are: Normal (Liked, yours, a folder's), Smart, Mood,
        Automix; the icon of each kind as the app's "New playlist" shows it. */
     char groupOf(char kind) {
         switch (kind) {
@@ -840,7 +840,7 @@ namespace {
     const AlphaSymbol &groupIcon(char g) {
         return g == 'S' ? plsym::smart : g == 'M' ? plsym::mood : g == 'A' ? plsym::sparkle : plsym::list;
     }
-    /* The kicker Songate gives a playlist (App::playlistKind). */
+    /* The kicker Doli gives a playlist (App::playlistKind). */
     const char *kindLabel(char kind) {
         switch (kind) {
             case GFBG_KIND_AUTOMIX: return "Automix Playlist";
@@ -905,7 +905,7 @@ tsl::elm::Element *PlaylistKindsGui::createUI() {
     m_list->addItem(new tsl::elm::CategoryHeader("Playlists"));
     const std::vector<GfPlaylist> all = gfPlaylists();
     if (all.empty()) {
-        m_list->addItem(new tsl::elm::ListItem("Open Songate once to list its playlists"));
+        m_list->addItem(new tsl::elm::ListItem("Open Doli once to list its playlists"));
         frame->setContent(m_list);
         return frame;
     }
@@ -1003,7 +1003,7 @@ tsl::elm::Element *PlaylistTracksGui::createUI() {
     const bool thisPlays = play_ctx::source() == play_ctx::Source::Folder && play_ctx::folderPath() == folder;
     const char *cp = play_ctx::currentPath();
     // the tracks, and the titles of a window of them (Gatefold's whole library can be a playlist: an item each would
-    // run the overlay's memory out, as the queue page's; Songate Shows Them All)
+    // run the overlay's memory out, as the queue page's; Doli Shows Them All)
     constexpr u32 kWindow = 200;
     u32 from = 0;
     std::vector<std::pair<std::string, std::string>> tags;
@@ -1017,7 +1017,7 @@ tsl::elm::Element *PlaylistTracksGui::createUI() {
     }
     if (count > kWindow) {
         const std::string note = "Tracks " + std::to_string(from + 1) + "-" + std::to_string(std::min(count, from + kWindow)) + " of " +
-                                 std::to_string(count) + " " + ult::DIVIDER_SYMBOL + " Songate Shows Them All";
+                                 std::to_string(count) + " " + ult::DIVIDER_SYMBOL + " Doli Shows Them All";
         m_list->addItem(new tsl::elm::CustomDrawer([note](tsl::gfx::Renderer *r, s32 x, s32 y, s32 w, s32 h) {
             const auto tw = r->getTextDimensions(note, false, 15).first;
             r->drawString(note, false, x + (w - s32(tw)) / 2, y + 20, 15, tsl::offTextColor);
@@ -1032,7 +1032,7 @@ tsl::elm::Element *PlaylistTracksGui::createUI() {
         const u32 idx = from + k;
         const std::string &full = m_songs[idx];
         std::string title = tags[k].first, artist = tags[k].second;
-        if (title.empty()) {   // (not in Songate's library: its file name)
+        if (title.empty()) {   // (not in Doli's library: its file name)
             const size_t s = full.rfind('/'), d = full.rfind('.');
             title = full.substr(s == std::string::npos ? 0 : s + 1, d != std::string::npos && d > s ? d - s - 1 : std::string::npos);
         }

@@ -2003,7 +2003,7 @@ bool ModelFile::parse(const std::string& textIn, std::string* why) {
         if (!head) {
             if (key != "songate-automix-model") return fail("not an Automix model");
             m.format = atoi(val.c_str());
-            if (m.format < 1 || m.format > Format) return fail("a model of format " + val + ": it needs a newer Songate");
+            if (m.format < 1 || m.format > Format) return fail("a model of format " + val + ": it needs a newer Doli");
             head = true;
             continue;
         }
@@ -2039,8 +2039,8 @@ bool ModelFile::parse(const std::string& textIn, std::string* why) {
     }
     if (!head) return fail("not an Automix model");
     if (m.name.empty()) return fail("a model without a name");
-    if (m.mixan > mixan::Version) return fail("it needs a newer analysis (a newer Songate)");
-    if (m.order != "1.0.0") return fail("it needs a newer Songate (its playlist order)");
+    if (m.mixan > mixan::Version) return fail("it needs a newer analysis (a newer Doli)");
+    if (m.order != "1.0.0") return fail("it needs a newer Doli (its playlist order)");
     *this = m;
     return true;
 }

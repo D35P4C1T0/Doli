@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Songate: overlay/source/pl_symbols.hpp, the app's playlist icons for the overlay (see overlay_icons.cpp).
+# Doli: overlay/source/pl_symbols.hpp, the app's playlist icons for the overlay (see overlay_icons.cpp).
 # Usage: bash tools/brand/overlay_icons.sh   (uses the preview's SDL: tools/preview/deps/sdl and tools/preview/out's DLLs)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"

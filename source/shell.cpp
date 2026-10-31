@@ -924,7 +924,7 @@ void App::drawCoverNotice() {
                  "in the background, every list opens with its covers (a few minutes for a large library).", coverMissing, int(lib.tracks.size()));
     else
         snprintf(sub, sizeof sub, "%d of %d tracks have none yet, so the overlay shows no cover for them. They are made in the "
-                 "background while Songate is open.", coverMissing, int(lib.tracks.size()));
+                 "background while Doli is open.", coverMissing, int(lib.tracks.size()));
     const std::vector<std::string> lines = g.wrap(sub, sf, int(w - pad * 2 - 52), 4);
     const float h = pad + 26 + 8 + lines.size() * 21.f + 20 + 34 + pad;
     const float y = (css::H - h) / 2 + (1 - a) * 10;

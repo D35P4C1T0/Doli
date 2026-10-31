@@ -12,7 +12,7 @@
  *       shuffled (the user does not know which is which); out dir/round.json says what each demo is, NN.mp3 the demos.
  *       Round 2 on: variants around round 1's winners (variant2), and a plan.tsv: joins to hear again, pairs not to pick, new ones.
  *       Round 3 on: round 2's best (base3) in V1.0.0's place, and variants around it (variant3).
- * Anyone training a model of their own (self-serve, 2026-10-30; Songate's own rounds keep `round` above):
+ * Anyone training a model of their own (self-serve, 2026-10-30; Doli's own rounds keep `round` above):
  *   mixtrain build <cache.tsv> <round.spec> <out dir>     a round from a spec (see examples/training/round.spec)
  *   tools/mixtrain-fit.py <round dir>…                     what the ratings say, and a candidate
  *   mixtrain freeze <candidate> <name> <cache.tsv> <out.model>
@@ -735,7 +735,7 @@ static int modelFile(const std::string& name, const std::string& out) {
 
 // ============================================================ self-serve training (2026-10-30)
 // For anyone training an Automix model of their own (the user: "self serve for the end user who wants to train a model like
-// ours"; Songate's own rounds keep `mixtrain round`). A round is described by a spec file, not code; tools/mixtrain-fit.py
+// ours"; Doli's own rounds keep `mixtrain round`). A round is described by a spec file, not code; tools/mixtrain-fit.py
 // reads the ratings; `mixtrain freeze` writes the model file. Specs and candidates are "key value" lines, as model files.
 
 /** A spec or candidate file: each line's words ('#' starts a comment); "retest a | b" keeps its two paths whole. */
@@ -1086,6 +1086,6 @@ int main(int argc, char** argv) {
                     "mixtrain build <cache.tsv> <round.spec> <out dir>                    a training round from a spec\n"
                     "mixtrain freeze <candidate> <name> <cache.tsv> <out.model>           a new model from a candidate\n"
                     "mixtrain filesame <cache.tsv> <file>.model                           a model file against what it stands for\n"
-                    "mixtrain round <cache.tsv> <out dir> <round> [seed] [plan.tsv]       (Songate's own rounds)\n");
+                    "mixtrain round <cache.tsv> <out dir> <round> [seed] [plan.tsv]       (Doli's own rounds)\n");
     return 2;
 }

@@ -24,6 +24,6 @@ jobs:
       - name: Upload NRO
         uses: actions/upload-artifact@v7
         with:
-          name: Songate-nro
-          path: Songate.nro
+          name: Doli-nro
+          path: Doli.nro
           if-no-files-found: error

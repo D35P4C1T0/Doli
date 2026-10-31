@@ -90,8 +90,8 @@ bool run(const std::string& url, Sink& sink, std::string& err, const std::string
     }
     if (secret) headers = curl_slist_append(headers, secret);
     curl_easy_setopt(c, CURLOPT_URL, url.c_str());
-    static const std::string agent = [] {   // "Songate/2.0.0-BETA": a product token has no spaces
-        std::string s = "Songate/" GF_VERSION;
+    static const std::string agent = [] {   // "Doli/2.0.0-BETA": a product token has no spaces
+        std::string s = "Doli/" GF_VERSION;
         for (char& ch : s) if (ch == ' ') ch = '-';
         return s;
     }();
@@ -226,7 +226,7 @@ bool post(const std::string& url, const std::string& json, char* secret, std::st
     fwrite(json.data(), 1, json.size(), f);
     fclose(f);
     (void)url;
-    out = "{\"number\": " + std::to_string(n) + ", \"html_url\": \"https://github.com/AndryTheBeast/songate-reports/issues/" + std::to_string(n) + "\"}";
+    out = "{\"number\": " + std::to_string(n) + ", \"html_url\": \"https://github.com/D35P4C1T0/Doli/issues/" + std::to_string(n) + "\"}";
     SDL_Delay(400);   // a little of the wait a real request has
     return true;
 }

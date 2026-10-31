@@ -27,7 +27,7 @@ class Server(BaseHTTPRequestHandler):
         assert len(q['s']) >= 6 and q['s'] not in salts
         salts.add(q['s'])
         assert q['t'] == hashlib.md5(('secret+&é' + q['s']).encode()).hexdigest()
-        assert q['f'] == 'xml' and q['v'] == '1.16.1' and q['c'] == 'Songate'
+        assert q['f'] == 'xml' and q['v'] == '1.16.1' and q['c'] == 'Doli'
         method = url.path.rsplit('/', 1)[-1]
         if url.path.startswith('/redirect/'):
             self.send_response(302)

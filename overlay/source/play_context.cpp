@@ -149,7 +149,7 @@ namespace {
         tunePause();
         if (R_FAILED(tuneClearQueue()))
             return false;
-        if (!name.empty() || automix) gfQueueMeta(name, automix);   // a playlist of Songate's: its name, and Automix's rules
+        if (!name.empty() || automix) gfQueueMeta(name, automix);   // a playlist of Doli's: its name, and Automix's rules
         for (const auto& s : songs)
             tuneEnqueue(s.c_str(), TuneEnqueueType_Back);
         if (!songs.empty()) {

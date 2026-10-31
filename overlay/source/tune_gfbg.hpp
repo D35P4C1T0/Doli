@@ -24,7 +24,7 @@ std::vector<std::string> gfPlaylistNames();
 std::string gfPlaylistName(u64 hash);
 
 /** Gatefold's playlists as Browse › Playlists lists them (protocol 6: GFBG_PLAYLISTS' "!list" lines, the file's header
- *  only): each one's kind (GFBG_KIND_*), the icon Songate's sidebar shows (plicons.inc's key), its tracks and name. */
+ *  only): each one's kind (GFBG_KIND_*), the icon Doli's sidebar shows (plicons.inc's key), its tracks and name. */
 struct GfPlaylist { char kind = 0; std::string icon, name; u32 count = 0; };
 std::vector<GfPlaylist> gfPlaylists();
 /** A playlist's tracks (paths without "sdmc:", as the overlay's), and the titles and artists of `window` of them from

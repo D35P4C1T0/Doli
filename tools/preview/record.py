@@ -3,7 +3,7 @@
 
     python tools/preview/record.py <card-root> <storyboard.txt> <out-folder>
 
-Speaks the live environment's protocol (streamshim.cpp): runs tools/preview/out/gatefold-preview.exe with GF_STREAM,
+Speaks the live environment's protocol (streamshim.cpp): runs tools/preview/out/doli-preview.exe with GF_STREAM,
 asks for every frame at high quality, and saves <out>/frames.bin ([time f64][length u32][JPEG]…), <out>/audio.s16 and
 <out>/info.txt (rate, channels, when the sound began). Dev only. Then make_film.py cuts takes into the README's film.
 
@@ -75,7 +75,7 @@ def main():
     for k in ('GF_SHOW', 'GF_SCRIPT', 'SDL_AUDIODRIVER'):
         env.pop(k, None)
     env.update(GF_ROOT=card, GF_ROMFS=str(PROJECT / 'romfs'), GF_STREAM=f'127.0.0.1:{PORT}', SDL_AUDIODRIVER='dummy')
-    app = subprocess.Popen([str(HERE / 'out' / 'gatefold-preview.exe')], cwd=str(HERE / 'out'), env=env,
+    app = subprocess.Popen([str(HERE / 'out' / 'doli-preview.exe')], cwd=str(HERE / 'out'), env=env,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     conn, _ = srv.accept()
     conn.sendall(b'q 92\nf 1\nz 100\n')

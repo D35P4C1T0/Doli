@@ -2,7 +2,7 @@
 # demos. Blind: it shows the two songs of each demo, never which version it is or its numbers.
 #   python tools/preview/mixtrain-page.py <round dir> [--claude]
 # "Save the ratings" saves ratings-round-N.json (the browser's downloads) and copies it too; put it in the round's folder for
-# tools/mixtrain-fit.py. --claude: Songate's own rounds, rated for Claude to read ("Send to Claude").
+# tools/mixtrain-fit.py. --claude: Doli's own rounds, rated for Claude to read ("Send to Claude").
 import html, json, os, sys
 
 args = [a for a in sys.argv[1:] if a != '--claude']
@@ -10,7 +10,7 @@ for_claude = '--claude' in sys.argv[1:]
 d = args[0]
 r = json.load(open(os.path.join(d, 'round.json'), encoding='utf-8'))
 n = r['round']
-# the model the round trains: Songate's own rounds (V1.1.0 from rounds 1-4, V1.2.0 from round 5), or a round of your own
+# the model the round trains: Doli's own rounds (V1.1.0 from rounds 1-4, V1.2.0 from round 5), or a round of your own
 EYEBROW = ('Training from ' + r['base']) if r.get('base') else 'Automix ' + ('V1.1.0' if n <= 4 else 'V1.2.0') + ' · training'
 BUTTON = 'Send to Claude' if for_claude else 'Save the ratings'
 AFTER = ("'. Tell Claude it is sent.'" if for_claude else

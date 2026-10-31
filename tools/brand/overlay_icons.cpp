@@ -1,5 +1,5 @@
 /*
- * Songate · tools/brand/overlay_icons.cpp
+ * Doli · tools/brand/overlay_icons.cpp
  * The app's playlist icons (source/icons.inc, plicons.inc: every key a playlist can wear) rasterised for the overlay, which
  * cannot draw SVG: overlay/source/pl_symbols.hpp, an AlphaSymbol per key (symbol.hpp's format: one byte of alpha a pixel)
  * and a lookup by key. Drawn by SDL_image's SVG renderer, as the app draws them, so the overlay's marks are the same.

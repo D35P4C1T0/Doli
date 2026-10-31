@@ -1,5 +1,5 @@
 name: 💡 Feature request
-description: An idea for Songate.
+description: An idea for Doli.
 title: "[Idea] "
 labels: [enhancement]
 body:
@@ -7,7 +7,7 @@ body:
     id: idea
     attributes:
       label: The idea
-      description: What would you like Songate to do?
+      description: What would you like Doli to do?
     validations:
       required: true
   - type: textarea
@@ -20,7 +20,7 @@ body:
   - type: dropdown
     id: part
     attributes:
-      label: Which part of Songate?
+      label: Which part of Doli?
       options:
         - Now playing
         - Library and playlists
@@ -36,6 +36,6 @@ body:
   - type: input
     id: version
     attributes:
-      label: Songate version
+      label: Doli version
       description: Settings › About. Optional, but it helps.
       placeholder: 2.0.0 BETA 1

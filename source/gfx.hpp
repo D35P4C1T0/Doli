@@ -103,7 +103,7 @@ public:
                    float alpha = 1);
     /** Letter-spaced text (the uppercase kickers), spacing in em. Centred on cy. */
     int textSpaced(const std::string& s, Font f, float x, float cy, float spacingEm, const Rgb& c, float alpha = 1, Align a = Align::Left);
-    /** Songate's wordmark (wordmark.inc: Fraunces Black, made once by tools/brand/wordmark.py): its letters in a gradient
+    /** Doli's wordmark (wordmark.inc: Fraunces Black, made once by tools/brand/wordmark.py): its letters in a gradient
      *  across, a → b → c, over their own blurred glow (glowC, glowA), with a shimmer of white crossing them while shine is in
      *  0..1 (where the light is, across the word). x is its left, cy the letters' middle. Its width and height as made. */
     void wordmark(float x, float cy, const Rgb& a, const Rgb& b, const Rgb& c, const Rgb& glowC, float glowA, float shine, float alpha = 1);

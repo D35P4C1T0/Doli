@@ -37,14 +37,14 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-# Songate overlay: Songate.ovl for Ultrahand (Gatefold.ovl before 2.0.0) (switch/.overlays/). Built on sys-tune 2.1's
+# Doli overlay: Doli.ovl for Ultrahand (Gatefold.ovl before 2.0.0) (switch/.overlays/). Built on sys-tune 2.1's
 # overlay (GPL-2, see LICENSE-sys-tune) and libultrahand, talking to Gatefold's background player.
 VERSION		?=	2.0.0 BETA 1
 API_VERSION	?=	4
-APP_TITLE	:=	Songate
-APP_AUTHOR	:=	AndryTheBeast
+APP_TITLE	:=	Doli
+APP_AUTHOR	:=	D35P4C1T0
 
-TARGET		:=	Songate
+TARGET		:=	Doli
 BUILD		:=	build
 SOURCES		:=	source common/minIni common/sdmc common/config common/pm
 DATA		:=	data

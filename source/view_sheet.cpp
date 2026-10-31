@@ -343,10 +343,10 @@ void App::drawSheet() {
             }
             if (pl.automix) {   // an Automix playlist: this track first (pinned), or Gatefold's choice again
                 const bool pinned = pl.pin == tr.path;
-                items.push_back({ ICON_LINK, pinned ? "Let Songate choose the first track" : "Play this first", "", [this, ref = route.ref, pinned, path = tr.path] {
+                items.push_back({ ICON_LINK, pinned ? "Let Doli choose the first track" : "Play this first", "", [this, ref = route.ref, pinned, path = tr.path] {
                                       store.playlists[ref].pin = pinned ? "" : path;
                                       orderAutomixList(ref, false);
-                                      toast(pinned ? "Songate chooses the first track again" : "Plays first; the rest ordered after it");
+                                      toast(pinned ? "Doli chooses the first track again" : "Plays first; the rest ordered after it");
                                       closeSheet();
                                   } });
             }
@@ -478,14 +478,14 @@ void App::drawSheet() {
             sheet.memo["lrc"] = readSidecarLyrics(tr.path).empty() ? "" : "1";
         }
         info("Size", sheet.memo["size"]);
-        info("Cover", store.covers.count(tr.path) ? "Yours, kept by Songate" : !in.cover.empty() ? "In the file" : "From the folder, or none");
+        info("Cover", store.covers.count(tr.path) ? "Yours, kept by Doli" : !in.cover.empty() ? "In the file" : "From the folder, or none");
         info("Lyrics", !sheet.memo["lrc"].empty() ? ".lrc file" : !in.lyrics.empty() ? "In the tags" : "None");
         if (const auto it = store.lyricNudge.find(tr.path); it != store.lyricNudge.end()) {   // the timing control (Now playing, the Canvas)
             char b[48];
-            snprintf(b, sizeof b, "%.1f s %s, kept by Songate", double(std::fabs(it->second)), it->second > 0 ? "later" : "earlier");
+            snprintf(b, sizeof b, "%.1f s %s, kept by Doli", double(std::fabs(it->second)), it->second > 0 ? "later" : "earlier");
             info("Lyrics timing", b);
         }
-        info("Your edits", store.edits.count(tr.path) ? "Yes, kept by Songate; the file is unchanged" : "");
+        info("Your edits", store.edits.count(tr.path) ? "Yes, kept by Doli; the file is unchanged" : "");
         // Volume levelling (levels.hpp)
         if (const Level* lv = levels.find(tr.path); lv && !std::isnan(lv->lufs)) {
             char b[64];
@@ -629,7 +629,7 @@ void App::drawSheet() {
         ry += it.h;
     }
     if (page == Sheet::Tags && sheet.page == page) {
-        g.text("Kept by Songate and shown everywhere in the app. The file itself is not changed.", { css::Sm }, x + 24, ry + 10, pal.text3, 1,
+        g.text("Kept by Doli and shown everywhere in the app. The file itself is not changed.", { css::Sm }, x + 24, ry + 10, pal.text3, 1,
                Align::Left, int(w - 48));
         ry += 34;
     }

@@ -1,5 +1,1 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Report from your console
-    url: https://github.com/AndryTheBeast/Songate#%EF%B8%8F-settings-updates-and-support
-    about: Songate can send a report by itself, with your versions filled in. Turn it on in Settings › Support.
+blank_issues_enabled: true

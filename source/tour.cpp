@@ -69,14 +69,14 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
             a.area("settings.pane").target = a.area("settings.pane").y = 0;
         };
     };
-    // Written for someone who has never seen Songate: what the part is, what it does, and one thing to try.
+    // Written for someone who has never seen Doli: what the part is, what it does, and one thing to try.
     // Buttons are key caps ({A} … drawTour). Kept to about six lines each, so the card stays beside what it shows.
     // Each step's level (the user, 2026-10-30: "the app is quite complex: a basic, an advanced and a complete tour"):
     // 0 in every tour, 1 Advanced and Complete, 2 Complete only.
     static const std::vector<TourStep> all = {
         // ---- Welcome (the first card asks which tour: drawTour)
         { 0, 0, ICON_SPARKLE, "Welcome to the tour",
-          "Songate shows you around its own screens, using your music. {A} or Next moves on, {B} or Back goes back, "
+          "Doli shows you around its own screens, using your music. {A} or Next moves on, {B} or Back goes back, "
           "Chapters jumps to a topic and × ends the tour. Choose how deep to go:",
           page(View::Now), {} },
         // ---- Playing
@@ -109,7 +109,7 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           nullptr, { { "pb.sleep" }, { "pb.eq" }, { "pb.queue" }, { "pb.mute" }, { "pb.vol" }, { "pb.canvas" } } },
         { 2, 1, ICON_MOON, "The sleep timer",
           "15 to 90 minutes, or the end of the track. The music fades out over its last ten seconds and pauses where you "
-          "were; the background player keeps the time with Songate closed too. Then a card counts down and puts the "
+          "were; the background player keeps the time with Doli closed too. Then a card counts down and puts the "
           "console to sleep, unless you stay awake.",
           settings(App::SetPlayback), { { "set.sleepcon", 0, 4 } } },
         { 0, 1, ICON_PLUS, "The track menu",
@@ -118,12 +118,12 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           page(View::Queue), { { "@main" } } },
         { 2, 1, ICON_TAG, "Tags, covers and details",
           "The track menu also edits its tags (title, artist, album, genre, year…) and changes its cover with any image on "
-          "the SD card, for one track or the whole album. Songate keeps your changes apart: your files are never "
+          "the SD card, for one track or the whole album. Doli keeps your changes apart: your files are never "
           "touched, and Undo puts them back. Details shows its plays and its loudness.",
           page(View::Queue), { { "@main" } } },
         // ---- Library
         { 0, 2, ICON_GRID, "The sidebar",
-          "Songate sorts your music by its tags, never by how your folders are arranged. Albums, Artists, Genres, "
+          "Doli sorts your music by its tags, never by how your folders are arranged. Albums, Artists, Genres, "
           "Folders and Library each show it a different way. Settings › Appearance › Sidebar can reorder these tabs, "
           "hide some, or add dividing lines.",
           nullptr, { { "nav.now" }, { "nav.queue" }, { "nav.albums" }, { "nav.artists" }, { "nav.genres" }, { "nav.folders" }, { "nav.library" } } },
@@ -154,7 +154,7 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           "recording.",
           nullptr, { { "tb.search" } } },
         { 2, 2, ICON_HISTORY, "Play statistics",
-          "A track counts as played after a minute, or nearly all of a shorter one, in Songate and in the background "
+          "A track counts as played after a minute, or nearly all of a shorter one, in Doli and in the background "
           "player. Plays, the last play and the date added show in Details, and smart playlists like Most played and "
           "Forgotten favourites are built from them.",
           page(View::Queue), { { "@main" } } },
@@ -175,7 +175,7 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           "create it, and stays up to date as you play.",
           nullptr, { { "nav.newpl" } } },
         { 0, 3, ICON_SPARKLE, "Automix playlists",
-          "An Automix playlist plays like a DJ set. Songate listens to each song once, puts them in the order where they "
+          "An Automix playlist plays like a DJ set. Doli listens to each song once, puts them in the order where they "
           "join best, and blends one into the next on the beat, on the drop, or through its fade. For example: + › "
           "Automix playlist…, then tick a few albums.",
           nullptr, { { "nav.newpl" } } },
@@ -190,7 +190,7 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           "their order is the point.",
           page(View::Queue), { { "nav.playlists" } } },
         { 1, 3, PLI_MOOD, "Mood playlists",
-          "A Mood playlist sorts your library by how it sounds: Happy, Party, Relaxed, Sad or Aggressive. Songate "
+          "A Mood playlist sorts your library by how it sounds: Happy, Party, Relaxed, Sad or Aggressive. Doli "
           "measures each song on the console, so the list fills in as it goes. For example: + › Mood playlist…, then "
           "Relaxed for a quiet evening.",
           page(View::Queue), { { "nav.newpl" } } },
@@ -205,7 +205,7 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           page(View::Playlists), { { "@main" } } },
         { 2, 3, ICON_GAME, "A playlist for a game",
           "Games on a playlist's page makes it start by itself when a game opens, on the HOME menu, back in the game or "
-          "when it closes: where it was left, or shuffled afresh. The background player plays it, with Songate closed.",
+          "when it closes: where it was left, or shuffled afresh. The background player plays it, with Doli closed.",
           page(View::List, -1), { { "pl.games" } } },
         // ---- Files
         { 1, 4, PLI_SDCARD, "Files",
@@ -258,7 +258,7 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           settings(8), { { "set.ptrspeed" }, { "set.ptraccel" } } },
         // ---- Background player and overlay
         { 0, 7, ICON_GAME, "The background player",
-          "The background player keeps the music going on the HOME menu, in games, and after Songate is closed. Game "
+          "The background player keeps the music going on the HOME menu, in games, and after Doli is closed. Game "
           "actions decide what it does when a game opens, when you go to HOME, when you return and when the game "
           "closes: nothing, play, resume, pause, or start one of your playlists.",
           settings(App::SetPlayback), { { "set.bg" } } },   // drawTour scrolls the page to it
@@ -268,12 +268,12 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           settings(App::SetPlayback), { { "set.bgfout" }, { "set.bgfin" } } },
         { 0, 7, ICON_GAME, "The overlay",
           "While a game is running, open Ultrahand ({L} + {BTN-DOWN} + a click of the right stick {RS}, unless you changed it) and choose "
-          "Songate. From there you control the music, the queue, game actions, the equalizer, the sleep timer and the "
+          "Doli. From there you control the music, the queue, game actions, the equalizer, the sleep timer and the "
           "volume without leaving the game.",
           nullptr, {} },
         { 2, 7, ICON_FOLDER, "Browsing in the overlay",
           "The overlay's Browse opens your folders, or your playlists by kind: Normal, Smart, Mood and Automix, each with "
-          "Songate's own icons. Play from any track, add one or all to the queue, all without leaving the game.",
+          "Doli's own icons. Play from any track, add one or all to the queue, all without leaving the game.",
           nullptr, {} },
         // ---- Settings
         { 0, 8, ICON_GEAR, "Settings",
@@ -281,27 +281,27 @@ const std::vector<TourStep>& App::tourStepsAt(int level) {
           "timer, the console's sleep and the screen dimming.",
           settings(0), { { "@settingsCats" } } },
         { 2, 8, ICON_FOLDER, "Storage",
-          "Where each browser opens, where backups go, and what Songate keeps on the card (covers, measurements, "
+          "Where each browser opens, where backups go, and what Doli keeps on the card (covers, measurements, "
           "tags), each with its size and a Clear button.",
           settings(App::SetStorage), { { "@main" } } },
         { 1, 8, ICON_HISTORY, "Backups and resets",
-          "Back up the settings now keeps a copy you can restore later, and Songate backs up by itself before every "
+          "Back up the settings now keeps a copy you can restore later, and Doli backs up by itself before every "
           "update. Reset settings puts every setting back as it came. Factory reset erases what you choose, or "
           "everything.",
           settings(App::SetReset), { { "set.backupnow" }, { "set.reset" }, { "set.factory" } } },
         { 1, 8, ICON_DOWNLOAD, "Updates",
-          "Updates stays off until you turn it on. Then Songate can check GitHub for new versions, show what changed, "
-          "install one, or go back to an earlier one, and fetch new Automix models. With it off, Songate never goes "
+          "Updates stays off until you turn it on. Then Doli can check GitHub for new versions, show what changed, "
+          "install one, or go back to an earlier one, and fetch new Automix models. With it off, Doli never goes "
           "online.",
           settings(App::SetUpdates), { { "set.updon" } } },
         { 2, 8, ICON_BOLT, "Betas and Automix models",
           "Beta versions lets you try new features before they are released: they can have bugs, so please report what "
           "you find. Automix models brings new ways of joining songs, downloaded and checked, and you can always go back "
-          "to the one Songate came with.",
+          "to the one Doli came with.",
           settings(App::SetUpdates), { { "set.updbeta" }, { "set.model" } } },
         { 1, 8, ICON_HELP, "Support",
-          "Found a bug, or have an idea? Support sends it straight to Songate's developer, with what helps to fix it: "
-          "your Songate and firmware versions and recent crash reports, never your file names. It stays off until you "
+          "Found a bug, or have an idea? Support sends it straight to Doli's developer, with what helps to fix it: "
+          "your Doli and firmware versions and recent crash reports, never your file names. It stays off until you "
           "turn it on.",
           settings(App::SetSupport), { { "set.repon" } } },
         { 0, 8, ICON_SPARKLE, "You're all set",
@@ -686,8 +686,8 @@ void App::drawTour() {
 
 /** A first launch whose folder was chosen in the picker (not on the welcome card): the tour, offered once. */
 void App::offerTour() {
-    confirm(ICON_SPARKLE, "Welcome to Songate", "A tour of Songate", "Basic, Advanced or Complete: you choose", "Take the tour?",
-            "Songate shows you around its own screens, with your music: playing, the library, playlists, files, sound, the "
+    confirm(ICON_SPARKLE, "Welcome to Doli", "A tour of Doli", "Basic, Advanced or Complete: you choose", "Take the tour?",
+            "Doli shows you around its own screens, with your music: playing, the library, playlists, files, sound, the "
             "Canvas, the background player and the overlay, and Settings. It starts once your music is read. It is also in "
             "Settings › About.",
             "Take the tour", [this] { tourPending = true; });

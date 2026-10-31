@@ -61,7 +61,7 @@ bool App::init() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) return false;
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_WEBP);
     startMark("init");
-    window_ = SDL_CreateWindow("Songate", 0, 0, css::W, css::H, 0);
+    window_ = SDL_CreateWindow("Doli", 0, 0, css::W, css::H, 0);
     renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!window_ || !renderer_ || !g.init(renderer_)) return false;
     // Text in a scroll area follows its scroll sub-pixel, so a glide does not end in one-pixel steps.
@@ -376,7 +376,7 @@ void App::shutdown() {
 #ifdef __SWITCH__
         if (envHasNextLoad()) envSetNextLoad(again.c_str(), again.c_str());
 #else
-        printf("[updater] Songate starts again: %s\n", again.c_str());
+        printf("[updater] Doli starts again: %s\n", again.c_str());
 #endif
     }
     appletUnlockExit();
@@ -2078,7 +2078,7 @@ bool App::bgSyncQueue(bool reload) {
         bg.stop();
         bg.disconnect();
         player.setRemote(nullptr);
-        toast("This queue is too big for the background player: Songate plays it itself");
+        toast("This queue is too big for the background player: Doli plays it itself");
         if (reload && had) {
             loadTrack(q.tracks[q.order[q.pos]], !playing);
             if (at > 1) player.seek(at);
@@ -2099,7 +2099,7 @@ void App::bgUpdate() {
     if (!player.remote()) return;
     if (!bg.poll(time)) {
         player.setRemote(nullptr);
-        toast("The background player stopped, so Songate plays on its own");
+        toast("The background player stopped, so Doli plays on its own");
         return;
     }
     if (!bgSyncQueue()) return;   // too big for it: Gatefold plays by itself now
@@ -2350,7 +2350,7 @@ void App::confirm(const char* icon, const std::string& kicker, const std::string
 
 /** Settings → Playback → Background player: hands the track over, at the same place, either way. */
 void App::setBackground(bool on) {
-    if (on && store.subsonic.enabled) { toast("Subsonic plays while Gatefold is open"); return; }
+    if (on && store.subsonic.enabled) { toast("Subsonic plays while Doli is open"); return; }
     store.background = on;
     persistSoon(0.3f);
     const bool had = now.track >= 0 && q.pos >= 0;
@@ -2384,7 +2384,7 @@ void App::setBackground(bool on) {
             loadTrack(q.tracks[q.order[q.pos]], !playing);
             if (at > 1) player.seek(at);
         }
-        toast("Playing in Songate only: music stops when you leave it");
+        toast("Playing in Doli only: music stops when you leave it");
     }
 }
 
@@ -2800,7 +2800,7 @@ std::string App::trackSub(int t) const {
 
 int main(int argc, char** argv) {
     // The running .nro (hbloader gives its path), where an update's new one is swapped in
-    std::string self = "sdmc:/switch/Songate/Songate.nro";
+    std::string self = "sdmc:/switch/Doli/Doli.nro";
 #ifdef __SWITCH__
     if (argc > 0 && argv[0] && strncmp(argv[0], "sdmc:/", 6) == 0 && strstr(argv[0], ".nro")) self = argv[0];
     // An update installed while Gatefold was closed some other way (the console restarted): its .nro is swapped in

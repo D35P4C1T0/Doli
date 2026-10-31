@@ -3,7 +3,7 @@ reports (source/report.cpp unscrambles it).
 
     python tools/report-key.py [report.key]
 
-report.key: two lines, the repository ("AndryTheBeast/songate-reports") and a fine-grained token that can reach only that
+report.key: two lines, the repository ("owner/doli-reports") and a fine-grained token that can reach only that
 repository, with only Issues: read and write. Never commit either file. Without them a build simply cannot send reports.
 
 The header line "Authorization: Bearer <token>" is XORed with a xorshift32 stream (its seed: four random numbers here, and
